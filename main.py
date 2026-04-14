@@ -1,103 +1,13 @@
-import os
-import random
-import telebot
-from telebot import types
-from flask import Flask
-from threading import Thread
-
-# 1. RENDER IRRATTI AKKA HIN CUFFAMNE (FLASK SETUP)
-app = Flask('')
-
-@app.route('/')
-def home():
-    return "Bot is Live and Running!"
-
-def run():
-    # Render 'PORT' ofumaan siif kenna, yoo dhabame 10000 fayyadama
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host='0.0.0.0', port=port)
-
-def keep_alive():
-    t = Thread(target=run)
-    t.start()
-
-# 2. TELEGRAM BOT SETUP
-# 'BOT_TOKEN' Render Environment Variables keessa galchuu hin dagatin
-API_TOKEN = os.environ.get('BOT_TOKEN')
-bot = telebot.TeleBot(API_TOKEN)
-
-# Taphicha hordofuuf
+# 1. 'Variables' qarshii hordofan itti dabali
 game_state = {
     "is_active": False,
     "called_numbers": [],
-    "user_selections": {} 
+    "user_selections": {}, 
+    "total_pool": 1000,    # Qarshii taphaaf madabame (Fakkeenyaaf)
+    "user_balances": {}    # {user_id: balance}
 }
 
-# 3. KEYBOARD 1-100 (FILANNOO)
-def get_selection_keyboard():
-    markup = types.InlineKeyboardMarkup(row_width=5)
-    buttons = []
-    for i in range(1, 101):
-        buttons.append(types.InlineKeyboardButton(text=str(i), callback_data=f"select_{i}"))
-    markup.add(*buttons)
-    return markup
-
-@bot.message_handler(commands=['start', 'new_game'])
-def start_game(message):
-    game_state["is_active"] = True
-    game_state["called_numbers"] = []
-    game_state["user_selections"][message.from_user.id] = []
-    
-    bot.send_message(
-        message.chat.id, 
-        "Baga nagaan dhuftan! Maaloo lakkofsa 1-100 gidduu jiran hanga 20 filadhu:",
-        reply_markup=get_selection_keyboard()
-    )
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith('select_'))
-def handle_selection(call):
-    user_id = call.from_user.id
-    selected_num = int(call.data.split('_')[1])
-    
-    if user_id not in game_state["user_selections"]:
-        game_state["user_selections"][user_id] = []
-        
-    current = game_state["user_selections"][user_id]
-    
-    if selected_num in current:
-        bot.answer_callback_query(call.id, "Lakkofsa kana duraan filatteetta!")
-    elif len(current) >= 20:
-        bot.answer_callback_query(call.id, "Lakkofsa 20 qofa filachuu dandeessa!")
-    else:
-        current.append(selected_num)
-        bot.answer_callback_query(call.id, f"Lakkofsa {selected_num} filatteetta. ({len(current)}/20)")
-        
-        if len(current) == 20:
-            bot.send_message(call.message.chat.id, "Lakkofsa 20 guuttatteetta! Taphni eegalamaa jira...")
-            start_calling_numbers(call.message.chat.id)
-
-# 4. WAAMICHA LAKKOFSAA FI INJIFANNOO
-def start_calling_numbers(chat_id):
-    if not game_state["is_active"]:
-        return
-
-    remaining = [n for n in range(1, 101) if n not in game_state["called_numbers"]]
-    if not remaining:
-        bot.send_message(chat_id, "Lakkofsi hundi waamameera!")
-        return
-
-    next_num = random.choice(remaining)
-    game_state["called_numbers"].append(next_num)
-    
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("XUMURE! (Bingo)", callback_data="check_bingo"))
-    
-    bot.send_message(
-        chat_id, 
-        f"Lakkofsa Waamame: 🟢 {next_num}\nKuusaa: {game_state['called_numbers']}", 
-        reply_markup=markup
-    )
-
+# 2. Loojikii Injifannoo fi Hir'isummaa (30%)
 @bot.callback_query_handler(func=lambda call: call.data == "check_bingo")
 def check_bingo(call):
     user_id = call.from_user.id
@@ -107,14 +17,38 @@ def check_bingo(call):
     is_winner = all(num in called_nums for num in user_nums)
     
     if is_winner:
-        game_state["is_active"] = False # TAPHA DHAABUU
-        bot.send_message(call.message.chat.id, f"🎉 🎉 BAGA GAMMADDAN! {call.from_user.first_name} injifateera. Taphni dhaabbateera.")
+        game_state["is_active"] = False
+        
+        # --- HERREGA QARSHII ---
+        total_prize = game_state["total_pool"]
+        tax_amount = total_prize * 0.30        # 30% hir'isuu
+        final_win = total_prize - tax_amount   # Qarshii taphataaf hafu
+        
+        # Balance isaa irratti dabali
+        game_state["user_balances"][user_id] = game_state["user_balances"].get(user_id, 0) + final_win
+        
+        # Beeksisa Injifannoo
+        msg = (f"🎉 🎉 BAGA GAMMADDAN!\n\n"
+               f"👤 Taphataa: {call.from_user.first_name}\n"
+               f"🎟 Tikeetii: {user_nums}\n"
+               f"💰 Gatii Madabame: {total_prize} ETB\n"
+               f"📉 Komishinii (30%): {tax_amount} ETB\n"
+               f"💵 Qarshii Mo'attan: {final_win} ETB\n\n"
+               f"Qarshii keessan baafachuuf /withdraw fayyadamaa.")
+        
+        bot.send_message(call.message.chat.id, msg)
     else:
-        bot.answer_callback_query(call.id, "Lakkofsi kee hundi hin waamamne. Itti fufi!", show_alert=True)
+        bot.answer_callback_query(call.id, "Lakkofsi kee hundi hin waamamne!", show_alert=True)
         start_calling_numbers(call.message.chat.id)
 
-# 5. MAIN EXECUTION
-if __name__ == "__main__":
-    keep_alive() # Flask 'Web Server' jalqabsiisa
-    print("Bot eegalamaa jira...")
-    bot.infinity_polling()
+# 3. Loojikii Qarshii Baafachuu (Withdraw)
+@bot.message_handler(commands=['withdraw'])
+def withdraw_money(message):
+    user_id = message.from_user.id
+    balance = game_state["user_balances"].get(user_id, 0)
+    
+    if balance > 0:
+        bot.send_message(message.chat.id, f"💰 Balance keessan: {balance} ETB\nMaaloo lakkoofsa bilbilaa qarshiin irratti ergamu barreessaa.")
+        # Asirratti loojikii kaffaltii (Manual ykn API) itti fufuu dandeessa
+    else:
+        bot.send_message(message.chat.id, "⚠️ Balance keessan 0 dha. Tapha mo'achuu qabdu.")
