@@ -48,17 +48,11 @@ def api_start():
         return jsonify({"error": "Balance gahaa miti!"}), 400
     user_balances[uid] -= 10
     card = generate_bingo_card()
-    raw_drawn = random.sample(range(1, 76), 15)
+    raw_drawn = random.sample(range(1, 76), 20) # Lakkoofsa 20 waamuuf
     labeled_drawn = [get_bingo_label(n) for n in raw_drawn]
     return jsonify({"card": card, "drawn": labeled_drawn, "new_balance": user_balances[uid]})
 
-@app.route('/api/claim_win', methods=['POST'])
-def api_win():
-    uid = str(request.json.get('user_id'))
-    user_balances[uid] = user_balances.get(uid, 0) + 50
-    return jsonify({"new_balance": user_balances[uid]})
-
-# --- FRONTEND (FIXED & ENHANCED) ---
+# --- FRONTEND ---
 HTML_PAGE = """
 <!DOCTYPE html>
 <html>
@@ -68,68 +62,97 @@ HTML_PAGE = """
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <title>Bingo Ethiopia Live</title>
     <style>
-        body { background: #001489; color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 10px; overflow-x: hidden; }
-        .app-container { border: 2px solid #DBA111; border-radius: 20px; padding: 15px; background: rgba(0,0,0,0.95); min-height: 85vh; box-shadow: 0 0 15px #DBA111; }
+        body { background: #001489; color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 10px; }
+        .app-container { border: 2px solid #DBA111; border-radius: 20px; padding: 15px; background: rgba(0,0,0,0.95); min-height: 90vh; }
         .balance-card { background: #000; border: 2px solid #00FF00; padding: 10px; border-radius: 12px; margin-bottom: 15px; }
-        .btn { padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 8px; font-size: 1em; }
-        .play-btn { background: #DBA111; color: black; font-size: 1.1em; }
-        .dep-btn { background: #2ecc71; color: white; }
-        .with-btn { background: #e74c3c; color: white; }
+        .btn { padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 8px; }
+        .play-btn { background: #DBA111; color: black; }
         .info-panel { background: #222; padding: 15px; border-radius: 10px; text-align: left; font-size: 0.85em; display: none; margin-bottom: 10px; border: 1px solid #DBA111; }
+        
+        /* Ticket Selection */
+        .ticket-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; max-height: 200px; overflow-y: auto; background: #111; padding: 10px; border-radius: 10px; }
+        .t-btn { background: #444; color: white; border: 1px solid #DBA111; padding: 8px; border-radius: 5px; cursor: pointer; }
+        .t-btn.selected { background: #DBA111; color: black; }
+
+        /* Game UI */
         .card-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; margin-top: 10px; }
         .cell { background: white; color: black; padding: 10px 2px; border-radius: 4px; font-weight: bold; font-size: 0.8em; }
-        .cell.called { background: #00FF00; color: white; transform: scale(1.05); }
-        #draw-display { background: #DBA111; color: black; padding: 15px; border-radius: 10px; margin: 10px 0; font-weight: bold; font-size: 1.6em; }
+        .cell.called { background: #00FF00; color: white; }
+        .history-box { background: #111; padding: 10px; border-radius: 10px; margin-top: 10px; font-size: 0.8em; color: #00FF00; text-align: left; min-height: 40px; border: 1px solid #444; }
+        
+        /* Upload Section */
+        .upload-box { margin-top: 10px; border-top: 1px solid #444; padding-top: 10px; }
+        input[type="file"] { font-size: 0.8em; color: #DBA111; }
     </style>
 </head>
 <body>
     <div class="app-container">
-        <h2 style="color:#DBA111; margin-bottom: 5px;">🎰 BINGO ETHIOPIA</h2>
-        <div style="font-size: 0.7em; margin-bottom: 10px;">Madda Walabu University Bot Development</div>
+        <h2 style="color:#DBA111;">🎰 BINGO ETHIOPIA</h2>
 
         <div class="balance-card">
-            <small style="color:#aaa;">BALANCE</small>
+            <small>BALANCE</small>
             <h3 id="bal-val" style="color:#00FF00; font-size:2em; margin:5px 0;">-- ETB</h3>
         </div>
 
-        <div id="main-menu">
-            <button class="btn play-btn" onclick="startGame()">🎮 TAPHA JALQABI</button>
-            <button class="btn dep-btn" onclick="toggleDeposit()">💳 DEPOSIT (QARSHII GALCHI)</button>
-            
-            <div id="deposit-info" class="info-panel">
-                <b style="color:#DBA111;">Kaffaltii (Isayas Emana):</b><br>
-                📱 Telebirr: 0974085753<br>
-                🏦 CBE: 1000659750973<br>
-                🔸 CBE Birr: 0974085753<br><br>
-                <i>Screenshot botaaf ergi, kanaan booda "Confirm" xuqi.</i><br><br>
-                <button class="btn" style="background:#00FF00; color:black; padding:8px;" onclick="confirmDep()">✅ MIRKANEESSI (DONE)</button>
-            </div>
-
-            <button class="btn with-btn" onclick="requestWithdraw()">💰 WITHDRAW (DIRECT)</button>
+        <div id="ticket-stage">
+            <p>Maaloo Tikeetii Filadhaa (1-100)</p>
+            <div class="ticket-grid" id="t-grid"></div>
+            <p id="sel-info" style="color:#DBA111; font-weight:bold;"></p>
+            <button class="btn play-btn" id="start-btn" onclick="startGame()" style="display:none;">🎮 TAPHA JALQABI</button>
         </div>
 
         <div id="game-section" style="display:none;">
-            <div id="draw-display">Qophaa'aa...</div>
-            <div id="win-area"></div>
+            <div id="draw-display" style="background:#DBA111; color:black; padding:15px; border-radius:10px; font-weight:bold; font-size:1.5em;">...</div>
+            <div class="history-box" id="history">Kuusaa: </div>
             <div class="card-grid" id="bingo-card"></div>
+        </div>
+
+        <div id="footer-menu" style="margin-top:15px;">
+            <button class="btn" style="background:#2ecc71; color:white;" onclick="toggleDeposit()">💳 DEPOSIT</button>
+            <div id="deposit-info" class="info-panel">
+                📱 Telebirr/CBE Birr: 0974085753<br>
+                🏦 CBE: 1000659750973<br>
+                👤 Isayas Emana<br><br>
+                <div class="upload-box">
+                    <small>Screenshot Upload:</small><br>
+                    <input type="file" id="ss-file" accept="image/*"><br><br>
+                    <button class="btn" style="background:#00FF00; color:black; padding:5px;" onclick="confirmDep()">✅ MIRKANEESSI</button>
+                </div>
+            </div>
+            <button class="btn" style="background:#e74c3c; color:white;" onclick="requestWithdraw()">💰 WITHDRAW</button>
         </div>
     </div>
 
     <script>
         let tg = window.Telegram.WebApp;
         tg.expand();
-        let uid = tg.initDataUnsafe.user ? tg.initDataUnsafe.user.id : "test_user";
+        let uid = tg.initDataUnsafe.user ? tg.initDataUnsafe.user.id : "123";
+        let selectedTicket = null;
+
+        // Tikeetii 100 uumuu
+        const tGrid = document.getElementById('t-grid');
+        for(let i=1; i<=100; i++) {
+            let b = document.createElement('button');
+            b.innerText = i;
+            b.className = 't-btn';
+            b.onclick = () => {
+                selectedTicket = i;
+                document.querySelectorAll('.t-btn').forEach(x => x.classList.remove('selected'));
+                b.classList.add('selected');
+                document.getElementById('sel-info').innerText = "Tikeetii #" + i + " filatteetta!";
+                document.getElementById('start-btn').style.display = 'block';
+            };
+            tGrid.appendChild(b);
+        }
 
         async function loadData() {
-            try {
-                const res = await fetch('/api/get_user_data', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ user_id: uid })
-                });
-                const data = await res.json();
-                document.getElementById('bal-val').innerText = data.balance + " ETB";
-            } catch(e) { console.error(e); }
+            const res = await fetch('/api/get_user_data', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ user_id: uid })
+            });
+            const data = await res.json();
+            document.getElementById('bal-val').innerText = data.balance + " ETB";
         }
 
         function toggleDeposit() {
@@ -138,6 +161,9 @@ HTML_PAGE = """
         }
 
         async function confirmDep() {
+            const fileInput = document.getElementById('ss-file');
+            if(!fileInput.files[0]) { alert("Maaloo dura Screenshot upload godhaa!"); return; }
+            
             const res = await fetch('/api/confirm_deposit', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -145,32 +171,19 @@ HTML_PAGE = """
             });
             const data = await res.json();
             document.getElementById('bal-val').innerText = data.new_balance + " ETB";
-            alert("Mirkanaa'eera! Screenshot keessan ilaallee herrega keessan ni sirreessina.");
-            toggleDeposit();
-        }
-
-        function requestWithdraw() {
-            let bal = parseInt(document.getElementById('bal-val').innerText);
-            if (bal < 50) { alert("Baasuuf yoo xiqqaate 50 ETB barbaachisa!"); }
-            else {
-                tg.sendData("WITHDRAW_DIRECT_" + bal);
-                tg.close();
-            }
+            alert("Mirkanaa'eera! Balance keessan ni dabalame.");
         }
 
         async function startGame() {
-            document.getElementById('main-menu').style.display = "none";
+            document.getElementById('ticket-stage').style.display = "none";
+            document.getElementById('footer-menu').style.display = "none";
             const res = await fetch('/api/start_game', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ user_id: uid })
             });
             const data = await res.json();
-            if(data.error) { 
-                alert(data.error); 
-                document.getElementById('main-menu').style.display = "block"; 
-                return; 
-            }
+            if(data.error) { alert(data.error); location.reload(); return; }
 
             document.getElementById('bal-val').innerText = data.new_balance + " ETB";
             document.getElementById('game-section').style.display = "block";
@@ -184,28 +197,34 @@ HTML_PAGE = """
             }));
 
             let i = 0;
-            let timer = setInterval(async () => {
+            let historyArr = [];
+            let timer = setInterval(() => {
                 if(i >= data.drawn.length) {
                     clearInterval(timer);
-                    document.getElementById('draw-display').innerText = "BINGO!";
-                    const winRes = await fetch('/api/claim_win', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ user_id: uid })
-                    });
-                    const winData = await winRes.json();
-                    document.getElementById('bal-val').innerText = winData.new_balance + " ETB";
+                    document.getElementById('draw-display').innerText = "XUMURE!";
                     setTimeout(() => { location.reload(); }, 5000);
                     return;
                 }
                 let label = data.drawn[i];
                 let numOnly = label.split('-')[1];
                 document.getElementById('draw-display').innerText = label;
+                
+                // History kuusuu
+                historyArr.push(label);
+                document.getElementById('history').innerText = "Kuusaa: " + historyArr.join(", ");
+                
                 let cell = document.getElementById('c-'+numOnly);
                 if(cell) cell.className = 'cell called';
                 i++;
-            }, 1200);
+            }, 1500);
         }
+
+        function requestWithdraw() {
+            let bal = parseInt(document.getElementById('bal-val').innerText);
+            if(bal < 50) alert("Balance gahaa miti!");
+            else { tg.sendData("WITHDRAW_REQUEST_" + bal); tg.close(); }
+        }
+
         window.onload = loadData;
     </script>
 </body>
@@ -223,15 +242,7 @@ bot = telebot.TeleBot(TOKEN)
 def start(message):
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("🎰 BINGO BANAADHU", web_app=types.WebAppInfo(url="https://bingo-ethiopia-bot.onrender.com")))
-    bot.send_message(message.chat.id, "👋 **Baga nagaan dhuftan!**\n\nBingo Ethiopia haala haaraan qophaa'ee dhufeera. Hojiin hundi App keessatti raawwatama.", reply_markup=markup, parse_mode='Markdown')
-
-@bot.message_handler(content_types=['web_app_data'])
-def handle_app_data(message):
-    data = message.web_app_data.data
-    if "WITHDRAW_DIRECT" in data:
-        amount = data.split('_')[-1]
-        user = f"@{message.from_user.username}" if message.from_user.username else message.from_user.first_name
-        bot.send_message(message.chat.id, f"🚨 **Withdraw Request!**\n\nNama: {user}\nQarshii: {amount} ETB\n\nMaaloo lakkoofsa herrega keessanii ergaa, daqiiqaa muraasa keessatti isiniif ergina.")
+    bot.send_message(message.chat.id, "👋 **Baga nagaan dhuftan!**\n\nDura tikeetii filadhaatii tapha jalqabaa.", reply_markup=markup, parse_mode='Markdown')
 
 if __name__ == "__main__":
     Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))).start()
