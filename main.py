@@ -4,15 +4,15 @@ from flask import Flask
 from threading import Thread
 import os
 import random
+import time
 
 app = Flask('')
 
 @app.route('/')
 def home():
-    return "Bingo Ethiopia Bot is Live and Ready!"
+    return "Bingo Ethiopia Bot is Live!"
 
 def run():
-    # Render port 8080 ykn 10000 fayyadama
     port = int(os.environ.get('PORT', 8080))
     app.run(host='0.0.0.0', port=port)
 
@@ -20,25 +20,29 @@ def keep_alive():
     t = Thread(target=run)
     t.start()
 
-# --- TOKEN KEE HAARAA AS JIRA ---
 TOKEN = '8692359063:AAHteqfebC808tTmj6qvIdjiVJIXoXRTf4c' 
 bot = telebot.TeleBot(TOKEN)
 
-# Kaardii Bingo lakkoofsa 25 qabu uumuuf (5x5)
+# --- DATABASE SALPHAA ---
+user_balances = {}
+
+def get_balance(user_id):
+    return user_balances.get(user_id, 0)
+
+def update_balance(user_id, amount):
+    user_balances[user_id] = get_balance(user_id) + amount
+
+# --- BINGO LOGIC ---
 def generate_bingo_card():
     card = []
-    # Columns B(1-15), I(16-30), N(31-45), G(46-60), O(61-75)
     ranges = [(1, 15), (16, 30), (31, 45), (46, 60), (61, 75)]
     for start, end in ranges:
         column = random.sample(range(start, end + 1), 5)
         card.append(column)
-    
-    # Gidduu kaardichaa 'FREE' gochuuf
     card[2][2] = "FREE"
     return card
 
 def format_card(card):
-    # Kaardicha bifa table-iin qopheessuuf (Code block keessatti)
     header = " B  | I  | N  | G  | O \n-------------------\n"
     rows = ""
     for i in range(5):
@@ -51,28 +55,45 @@ def format_card(card):
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
+    user_id = message.from_user.id
+    
+    # --- NAMNI HAARAA YOO TA'E QARSHII 10 KENNI ---
+    if user_id not in user_balances:
+        user_balances[user_id] = 10
+        welcome_text = "🎰 **Baga Gammaddan!**\n\nKennaa jalqabaa **10 ETB** account keessanitti dabaleera! 🎁"
+    else:
+        welcome_text = "🎰 **Bingo Ethiopia**-tti deebitanii baga gammaddan!"
+
     markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
     itembtn1 = types.KeyboardButton('🎮 Tapha Jalqabi')
-    itembtn2 = types.KeyboardButton('📜 Seera Taphaa')
-    markup.add(itembtn1, itembtn2)
+    itembtn2 = types.KeyboardButton('💰 Balance Ko')
+    itembtn3 = types.KeyboardButton('💳 Deposit')
+    itembtn4 = types.KeyboardButton('📜 Seera Taphaa')
+    markup.add(itembtn1, itembtn2, itembtn3, itembtn4)
     
-    welcome_msg = (
-        "🎰 **Baga Gammaddan!**\n\n"
-        "Botiin Bingo Ethiopia haaraa kanaan hojii eegaleera.\n"
-        "Kaardii keessan fudhachuuf button gadii dhiibaa."
-    )
-    bot.send_message(message.chat.id, welcome_msg, reply_markup=markup, parse_mode='Markdown')
+    bot.send_message(message.chat.id, welcome_text, reply_markup=markup, parse_mode='Markdown')
 
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
+    user_id = message.from_user.id
+    
     if message.text == '🎮 Tapha Jalqabi':
-        card = generate_bingo_card()
-        card_text = format_card(card)
-        bot.send_message(message.chat.id, "🎲 Kunoo Kaardii keessan:\n\n" + card_text, parse_mode='MarkdownV2')
-        bot.send_message(message.chat.id, "Lakkoofsota botiin waamu hordofaa! Yoo guuttan 'BINGO' jedhaa.")
-    elif message.text == '📜 Seera Taphaa':
-        bot.reply_to(message, "📖 Seera: Kaardii kee irratti sarara (horizontal, vertical, ykn diagonal) tokko yoo guutte kallaattiin 'BINGO' jedhi!")
+        current_bal = get_balance(user_id)
+        if current_bal < 10:
+            bot.reply_to(message, "⚠️ Balance keessan gahaa miti. Maaloo dursa Deposit godhaa.")
+        else:
+            update_balance(user_id, -10)
+            card = generate_bingo_card()
+            bot.send_message(message.chat.id, f"🎲 Kunoo Kaardii keessan:\n(Balance hafe: {get_balance(user_id)} ETB)\n\n" + format_card(card), parse_mode='MarkdownV2')
+            
+    elif message.text == '💰 Balance Ko':
+        bal = get_balance(user_id)
+        bot.reply_to(message, f"💵 Qarshiin keessan: **{bal} ETB**", parse_mode='Markdown')
+        
+    elif message.text == '💳 Deposit':
+        update_balance(user_id, 50)
+        bot.reply_to(message, "✅ Qarshii 50 account keetti dabalameera!")
 
 if __name__ == "__main__":
     keep_alive()
-    bot.infinity_polling(timeout=10, long_polling_timeout=5)
+    bot.infinity_polling()
