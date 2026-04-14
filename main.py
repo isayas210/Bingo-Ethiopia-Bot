@@ -38,7 +38,6 @@ def get_data():
 @app.route('/api/confirm_deposit', methods=['POST'])
 def confirm_deposit():
     uid = str(request.json.get('user_id'))
-    # Ofumaan mirkaneessuuf (Auto-verification simulation)
     user_balances[uid] = user_balances.get(uid, 10) + 50
     return jsonify({"new_balance": user_balances[uid]})
 
@@ -59,7 +58,7 @@ def api_win():
     user_balances[uid] = user_balances.get(uid, 0) + 50
     return jsonify({"new_balance": user_balances[uid]})
 
-# --- FRONTEND (DEPOSIT SCREENSHOT LOGIC) ---
+# --- FRONTEND (FIXED & ENHANCED) ---
 HTML_PAGE = """
 <!DOCTYPE html>
 <html>
@@ -67,27 +66,29 @@ HTML_PAGE = """
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <title>Bingo Ethiopia Auto-Pay</title>
+    <title>Bingo Ethiopia Live</title>
     <style>
-        body { background: #001489; color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 10px; }
-        .app-container { border: 2px solid #DBA111; border-radius: 20px; padding: 15px; background: rgba(0,0,0,0.95); min-height: 90vh; }
+        body { background: #001489; color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 10px; overflow-x: hidden; }
+        .app-container { border: 2px solid #DBA111; border-radius: 20px; padding: 15px; background: rgba(0,0,0,0.95); min-height: 85vh; box-shadow: 0 0 15px #DBA111; }
         .balance-card { background: #000; border: 2px solid #00FF00; padding: 10px; border-radius: 12px; margin-bottom: 15px; }
-        .btn { padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 8px; }
-        .play-btn { background: #DBA111; color: black; font-size: 1.2em; }
+        .btn { padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 8px; font-size: 1em; }
+        .play-btn { background: #DBA111; color: black; font-size: 1.1em; }
         .dep-btn { background: #2ecc71; color: white; }
         .with-btn { background: #e74c3c; color: white; }
         .info-panel { background: #222; padding: 15px; border-radius: 10px; text-align: left; font-size: 0.85em; display: none; margin-bottom: 10px; border: 1px solid #DBA111; }
         .card-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; margin-top: 10px; }
         .cell { background: white; color: black; padding: 10px 2px; border-radius: 4px; font-weight: bold; font-size: 0.8em; }
-        .cell.called { background: #00FF00; color: white; }
+        .cell.called { background: #00FF00; color: white; transform: scale(1.05); }
+        #draw-display { background: #DBA111; color: black; padding: 15px; border-radius: 10px; margin: 10px 0; font-weight: bold; font-size: 1.6em; }
     </style>
 </head>
 <body>
     <div class="app-container">
-        <h2 style="color:#DBA111;">🎰 BINGO ETHIOPIA</h2>
-        
+        <h2 style="color:#DBA111; margin-bottom: 5px;">🎰 BINGO ETHIOPIA</h2>
+        <div style="font-size: 0.7em; margin-bottom: 10px;">Madda Walabu University Bot Development</div>
+
         <div class="balance-card">
-            <small>BALANCE</small>
+            <small style="color:#aaa;">BALANCE</small>
             <h3 id="bal-val" style="color:#00FF00; font-size:2em; margin:5px 0;">-- ETB</h3>
         </div>
 
@@ -100,17 +101,16 @@ HTML_PAGE = """
                 📱 Telebirr: 0974085753<br>
                 🏦 CBE: 1000659750973<br>
                 🔸 CBE Birr: 0974085753<br><br>
-                1. Kaffaltii raawwadhu.<br>
-                2. Screenshot botaaf ergi.<br>
-                3. Erga erganii booda kan gadii xuqi:<br><br>
-                <button class="btn" style="background:#00FF00; color:black; padding:5px;" onclick="confirmDep()">✅ MIRKANEESSI (DONE)</button>
+                <i>Screenshot botaaf ergi, kanaan booda "Confirm" xuqi.</i><br><br>
+                <button class="btn" style="background:#00FF00; color:black; padding:8px;" onclick="confirmDep()">✅ MIRKANEESSI (DONE)</button>
             </div>
 
-            <button class="btn with-btn" onclick="requestWithdraw()">💰 WITHDRAW (QARSHII BAASI)</button>
+            <button class="btn with-btn" onclick="requestWithdraw()">💰 WITHDRAW (DIRECT)</button>
         </div>
 
         <div id="game-section" style="display:none;">
-            <div id="draw-display" style="background:#DBA111; color:black; padding:15px; border-radius:10px; font-weight:bold; font-size:1.5em; margin-bottom:10px;">...</div>
+            <div id="draw-display">Qophaa'aa...</div>
+            <div id="win-area"></div>
             <div class="card-grid" id="bingo-card"></div>
         </div>
     </div>
@@ -118,16 +118,18 @@ HTML_PAGE = """
     <script>
         let tg = window.Telegram.WebApp;
         tg.expand();
-        let uid = tg.initDataUnsafe.user.id;
+        let uid = tg.initDataUnsafe.user ? tg.initDataUnsafe.user.id : "test_user";
 
         async function loadData() {
-            const res = await fetch('/api/get_user_data', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ user_id: uid })
-            });
-            const data = await res.json();
-            document.getElementById('bal-val').innerText = data.balance + " ETB";
+            try {
+                const res = await fetch('/api/get_user_data', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ user_id: uid })
+                });
+                const data = await res.json();
+                document.getElementById('bal-val').innerText = data.balance + " ETB";
+            } catch(e) { console.error(e); }
         }
 
         function toggleDeposit() {
@@ -143,14 +145,17 @@ HTML_PAGE = """
             });
             const data = await res.json();
             document.getElementById('bal-val').innerText = data.new_balance + " ETB";
-            alert("Mirkanaa'eera! 50 ETB siif dabalameera.");
+            alert("Mirkanaa'eera! Screenshot keessan ilaallee herrega keessan ni sirreessina.");
             toggleDeposit();
         }
 
         function requestWithdraw() {
             let bal = parseInt(document.getElementById('bal-val').innerText);
-            if (bal < 50) { alert("Yoo xiqqaate 50 ETB barbaachisa!"); }
-            else { tg.sendData("WITHDRAW_REQUEST_" + bal); tg.close(); }
+            if (bal < 50) { alert("Baasuuf yoo xiqqaate 50 ETB barbaachisa!"); }
+            else {
+                tg.sendData("WITHDRAW_DIRECT_" + bal);
+                tg.close();
+            }
         }
 
         async function startGame() {
@@ -161,7 +166,11 @@ HTML_PAGE = """
                 body: JSON.stringify({ user_id: uid })
             });
             const data = await res.json();
-            if(data.error) { alert(data.error); document.getElementById('main-menu').style.display = "block"; return; }
+            if(data.error) { 
+                alert(data.error); 
+                document.getElementById('main-menu').style.display = "block"; 
+                return; 
+            }
 
             document.getElementById('bal-val').innerText = data.new_balance + " ETB";
             document.getElementById('game-section').style.display = "block";
@@ -201,3 +210,29 @@ HTML_PAGE = """
     </script>
 </body>
 </html>
+"""
+
+@app.route('/')
+def home():
+    return render_template_string(HTML_PAGE)
+
+TOKEN = '8692359063:AAHteqfebC808tTmj6qvIdjiVJIXoXRTf4c'
+bot = telebot.TeleBot(TOKEN)
+
+@bot.message_handler(commands=['start'])
+def start(message):
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("🎰 BINGO BANAADHU", web_app=types.WebAppInfo(url="https://bingo-ethiopia-bot.onrender.com")))
+    bot.send_message(message.chat.id, "👋 **Baga nagaan dhuftan!**\n\nBingo Ethiopia haala haaraan qophaa'ee dhufeera. Hojiin hundi App keessatti raawwatama.", reply_markup=markup, parse_mode='Markdown')
+
+@bot.message_handler(content_types=['web_app_data'])
+def handle_app_data(message):
+    data = message.web_app_data.data
+    if "WITHDRAW_DIRECT" in data:
+        amount = data.split('_')[-1]
+        user = f"@{message.from_user.username}" if message.from_user.username else message.from_user.first_name
+        bot.send_message(message.chat.id, f"🚨 **Withdraw Request!**\n\nNama: {user}\nQarshii: {amount} ETB\n\nMaaloo lakkoofsa herrega keessanii ergaa, daqiiqaa muraasa keessatti isiniif ergina.")
+
+if __name__ == "__main__":
+    Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))).start()
+    bot.infinity_polling()
