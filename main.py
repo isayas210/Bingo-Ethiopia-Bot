@@ -7,10 +7,9 @@ from telebot.types import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
 TOKEN = os.environ.get('BOT_TOKEN')
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
-
 RENDER_URL = f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME')}"
 
-# 2. MINI APP INTERFACE (Bingo v2.0)
+# 2. MINI APP INTERFACE (B-I-N-G-O Style)
 @app.route('/')
 def home():
     return """
@@ -19,109 +18,98 @@ def home():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Bingo Ethiopia - Blues Coffee</title>
+        <title>Bingo Ethiopia - BINGO Style</title>
         <script src="https://telegram.org/js/telegram-web-app.js"></script>
         <style>
             body { font-family: sans-serif; background: #001f3f; color: white; text-align: center; padding: 10px; margin: 0; }
-            .card { background: #003366; padding: 15px; border-radius: 15px; border: 1px solid #00d4ff; margin-bottom: 10px; }
-            h1 { color: #ffcc00; font-size: 20px; margin: 5px; }
-            .section { display: none; }
-            .active { display: block; }
-            input, select { padding: 10px; width: 85%; border-radius: 5px; border: none; margin: 10px 0; font-size: 16px; }
-            .btn { background: #28a745; color: white; padding: 12px; border: none; border-radius: 8px; width: 90%; font-weight: bold; cursor: pointer; }
-            .btn-deposit { background: #ffcc00; color: #000; }
-            .called-number { font-size: 45px; color: #ffcc00; font-weight: bold; background: #002b55; padding: 15px; border-radius: 50%; width: 70px; height: 70px; line-height: 70px; margin: 15px auto; border: 3px solid #ffcc00; }
-            .ticket-box { background: #004080; padding: 5px; margin: 5px; border-radius: 5px; display: inline-block; min-width: 40px; }
+            .card { background: #003366; padding: 15px; border-radius: 15px; border: 1px solid #00d4ff; }
+            h1 { color: #ffcc00; font-size: 24px; letter-spacing: 5px; }
+            .wallet { font-size: 14px; color: #00ffcc; margin-bottom: 10px; }
+            input { padding: 10px; width: 80%; border-radius: 5px; border: none; margin: 10px 0; }
+            .btn { background: #28a745; color: white; padding: 12px; border: none; border-radius: 8px; width: 90%; font-weight: bold; }
+            
+            /* BINGO Call Style */
+            .call-display { margin: 20px 0; }
+            .letter { font-size: 30px; font-weight: bold; color: #ffcc00; display: block; }
+            .number { font-size: 60px; font-weight: bold; background: #fff; color: #003366; padding: 10px 25px; border-radius: 10px; display: inline-block; box-shadow: 0 0 15px #ffcc00; }
+            
+            .history-box { background: #001a33; padding: 10px; border-radius: 8px; height: 100px; overflow-y: auto; font-size: 14px; text-align: left; margin-top: 15px; }
+            .win-animation { color: #2ecc71; font-size: 20px; font-weight: bold; margin-top: 15px; animation: blink 1s infinite; }
+            @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
         </style>
     </head>
     <body>
 
     <div class="card">
-        <h1>Bingo Ethiopia</h1>
-        
-        <div id="deposit-section" class="section active">
-            <p>Wallet: <span id="balance">0.00</span> ETB</p>
-            <div style="text-align: left; font-size: 13px; background: #001a33; padding: 10px; border-radius: 8px;">
-                CBE: 1000659750973 <br>
-                Tele: 0974085753 <br>
-                CBE Birr: 0974085753
+        <h1>B-I-N-G-O</h1>
+        <div class="wallet">CBE: 1000659750973 | Balance: 0.00</div>
+
+        <div id="setup-area">
+            <p>Gatii Tikeetii (5-100):</p>
+            <input type="number" id="price" value="5" min="5">
+            <p>Lakk. Tikeetii Kee (Hanga 10):</p>
+            <input type="text" id="tickets" placeholder="Fkn: 12, 45, 6">
+            <button class="btn" onclick="startBingo()">TAPHA JALQABI</button>
+        </div>
+
+        <div id="game-area" style="display:none;">
+            <div class="call-display">
+                <span class="letter" id="currentLetter">WAITING...</span>
+                <span class="number" id="currentNum">?</span>
             </div>
-            <p>Screenshot kaffaltii fe'i:</p>
-            <input type="file" id="screenshot" accept="image/*">
-            <button class="btn btn-deposit" onclick="alert('Screenshot fe'ameera! Admin ni mirkaneessa.')">Kaffaltii Ergi</button>
-            <hr>
-            <button class="btn" onclick="showPlay()">Gara Taphaatti Darbi</button>
-        </div>
-
-        <div id="play-section" class="section">
-            <p>Gatii Tikeetii (5 - 100 ETB):</p>
-            <input type="number" id="ticketPrice" min="5" max="100" value="5">
-            <p>Lakkofsa Tikeetii (Hanga 10 filachuu dandeessa, addaan fageessi):</p>
-            <input type="text" id="ticketsInput" placeholder="Fkn: 5, 12, 45, 88">
-            <button class="btn" onclick="startBingo()">🎟️ Tikeetii Kutadhu</button>
-        </div>
-
-        <div id="bingo-section" class="section">
-            <p>Tikeetota Kee:</p>
-            <div id="myTicketsList"></div>
-            <div class="called-number" id="currentNum">?</div>
-            <p>Lakkofsota dhufran: <span id="history" style="font-size:12px; color:#aaa;"></span></p>
-            <div id="winMsg" style="color:#2ecc71; font-weight:bold;"></div>
+            <p>Tikeetota Kee: <span id="myTickets" style="color:#00ffcc;"></span></p>
+            <div class="history-box" id="history">History: </div>
+            <div id="winMsg"></div>
         </div>
     </div>
 
     <script>
         let tg = window.Telegram.WebApp;
         tg.expand();
-
-        let calledNumbers = [];
+        let called = [];
         let myTickets = [];
-        let pricePerTicket = 5;
+        let bet = 5;
 
-        function showPlay() {
-            document.getElementById('deposit-section').classList.remove('active');
-            document.getElementById('play-section').classList.add('active');
+        function getLetter(n) {
+            if (n <= 20) return "B";
+            if (n <= 40) return "I";
+            if (n <= 60) return "N";
+            if (n <= 80) return "G";
+            return "O";
         }
 
         function startBingo() {
-            let input = document.getElementById('ticketsInput').value;
-            pricePerTicket = parseInt(document.getElementById('ticketPrice').value);
+            let tInput = document.getElementById('tickets').value;
+            bet = parseInt(document.getElementById('price').value);
+            myTickets = tInput.split(',').map(x => parseInt(x.trim())).filter(x => x > 0);
             
-            if (pricePerTicket < 5 || pricePerTicket > 100) {
-                alert("Gatiin tikeetii 5 hanga 100 qofa!"); return;
-            }
-
-            myTickets = input.split(',').map(n => parseInt(n.trim())).filter(n => n >= 1 && n <= 100);
+            if (myTickets.length == 0) return alert("Tikeetii galchi!");
             
-            if (myTickets.length === 0 || myTickets.length > 10) {
-                alert("Tikeetii 1 hanga 10 qofa filachuu dandeessa!"); return;
-            }
-
-            document.getElementById('play-section').classList.remove('active');
-            document.getElementById('bingo-section').classList.add('active');
+            document.getElementById('setup-area').style.display = 'none';
+            document.getElementById('game-area').style.display = 'block';
+            document.getElementById('myTickets').innerText = myTickets.join(', ');
             
-            let listHtml = "";
-            myTickets.forEach(t => { listHtml += `<span class="ticket-box">${t}</span>`; });
-            document.getElementById('myTicketsList').innerHTML = listHtml;
-            
-            nextNumber();
+            nextCall();
         }
 
-        function nextNumber() {
-            if (calledNumbers.length >= 100) return;
-            let num;
-            do { num = Math.floor(Math.random() * 100) + 1; } while (calledNumbers.includes(num));
-            calledNumbers.push(num);
-            document.getElementById('currentNum').innerText = num;
-            document.getElementById('history').innerText = calledNumbers.join(', ');
+        function nextCall() {
+            if (called.length >= 100) return;
+            let n;
+            do { n = Math.floor(Math.random() * 100) + 1; } while (called.includes(n));
+            
+            called.push(n);
+            let L = getLetter(n);
+            
+            document.getElementById('currentLetter').innerText = L;
+            document.getElementById('currentNum').innerText = n;
+            document.getElementById('history').innerHTML += `<b>${L}-${n}</b>, `;
 
-            if (myTickets.includes(num)) {
-                let totalBet = pricePerTicket * myTickets.length;
-                let winAmount = totalBet * 0.70; // 70% win
-                document.getElementById('winMsg').innerHTML = `🎊 BINGO! Tikeetii ${num} irratti mo'atteetta!<br>Gatii Win: ${winAmount.toFixed(2)} ETB`;
+            if (myTickets.includes(n)) {
+                let win = (bet * myTickets.length) * 0.70;
+                document.getElementById('winMsg').innerHTML = `<div class="win-animation">🎊 BINGO! ${L}-${n} 🎊<br>MO'ATTEETTA: ${win.toFixed(2)} ETB</div>`;
                 tg.MainButton.setText("MAALLAQA FUDHU").show();
             } else {
-                setTimeout(nextNumber, 3000);
+                setTimeout(nextCall, 4000);
             }
         }
     </script>
@@ -129,29 +117,21 @@ def home():
     </html>
     """
 
-# 3. BOT
+# 3. BOT & WEBHOOK (Akkuma duraatti itti fufa)
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    markup = ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add(KeyboardButton(text="🎮 Bingo & Wallet Bani", web_app=WebAppInfo(url=RENDER_URL)))
-    bot.send_message(message.chat.id, "Baga nagaan dhuftan! Bingo Ethiopia ammayyaa'eera.\n\nTikeetii 1-100 filachuuf, kaffaltii raawwachuuf button gadii fayyadamaa.", reply_markup=markup)
+    bot.send_message(message.chat.id, "Baga nagaan dhuftan! Bingo Ethiopia B-I-N-G-O style qindaa'eera.", 
+                     reply_markup=ReplyKeyboardMarkup(resize_keyboard=True).add(KeyboardButton("🎮 Bingo Bani", web_app=WebAppInfo(url=RENDER_URL))))
 
-# 4. WEBHOOK
 @app.route('/' + TOKEN, methods=['POST'])
 def getMessage():
-    if request.headers.get('content-type') == 'application/json':
-        json_string = request.get_data().decode('utf-8')
-        update = telebot.types.Update.de_json(json_string)
-        bot.process_new_updates([update])
-        return "!", 200
-    return "Forbidden", 403
+    bot.process_new_updates([telebot.types.Update.de_json(request.get_data().decode('utf-8'))])
+    return "!", 200
 
 @app.route("/set_webhook")
 def set_webhook():
-    bot.remove_webhook()
     bot.set_webhook(url=RENDER_URL + '/' + TOKEN)
-    return "Webhook set successfully!", 200
+    return "Done", 200
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
