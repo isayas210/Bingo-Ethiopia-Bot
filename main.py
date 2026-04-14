@@ -25,7 +25,6 @@ def generate_bingo_card():
     for start, end in ranges:
         column = random.sample(range(start, end + 1), 5)
         card.append(column)
-    # FREE space (Transposed logic for grid)
     card[2][2] = "FREE"
     return card
 
@@ -45,27 +44,28 @@ def confirm_deposit():
 @app.route('/api/start_game', methods=['POST'])
 def api_start():
     uid = str(request.json.get('user_id'))
-    count = int(request.json.get('ticket_count', 1))
+    selected_tickets = request.json.get('tickets', [])
+    count = len(selected_tickets)
     cost = count * 10
     
+    if count == 0:
+        return jsonify({"error": "Maaloo dura tikeetii filadhaa!"}), 400
     if user_balances.get(uid, 0) < cost:
         return jsonify({"error": f"Balance gahaa miti! Tikeetii {count}-f {cost} ETB barbaachisa."}), 400
     
     user_balances[uid] -= cost
-    
-    # Tikeetii baay'ee uumuu
     all_cards = [generate_bingo_card() for _ in range(count)]
-    raw_drawn = random.sample(range(1, 76), 35) # Carraa fooyya'aadhaaf
+    raw_drawn = random.sample(range(1, 76), 40) 
     labeled_drawn = [get_bingo_label(n) for n in raw_drawn]
     
     return jsonify({
         "cards": all_cards, 
         "drawn": labeled_drawn, 
         "new_balance": user_balances[uid],
-        "ticket_cost": cost
+        "ticket_numbers": selected_tickets
     })
 
-# --- FRONTEND (MULTIPLE TICKETS & LINE WIN LOGIC) ---
+# --- FRONTEND (GRID SELECTION 1-100) ---
 HTML_PAGE = """
 <!DOCTYPE html>
 <html>
@@ -79,10 +79,11 @@ HTML_PAGE = """
         .app-container { border: 2px solid #DBA111; border-radius: 20px; padding: 15px; background: rgba(0,0,0,0.95); min-height: 90vh; }
         .balance-card { background: #000; border: 2px solid #00FF00; padding: 10px; border-radius: 12px; margin-bottom: 15px; }
         .btn { padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 8px; }
-        .play-btn { background: #DBA111; color: black; font-size: 1.1em; }
         
-        .ticket-selector { background: #111; padding: 15px; border-radius: 15px; border: 1px solid #444; }
-        .count-input { width: 60px; padding: 8px; font-size: 1.2em; text-align: center; border-radius: 5px; border: none; }
+        /* 1-100 Grid Selection */
+        .grid-100 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; max-height: 250px; overflow-y: auto; background: #111; padding: 10px; border-radius: 10px; border: 1px solid #444; }
+        .t-num { background: #333; color: white; border: 1px solid #555; padding: 10px 0; border-radius: 5px; font-size: 0.9em; cursor: pointer; }
+        .t-num.selected { background: #DBA111; color: black; border-color: white; font-weight: bold; }
         
         .card-container { background: #222; margin-top: 15px; padding: 10px; border-radius: 10px; border-left: 5px solid #DBA111; }
         .card-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; margin-top: 5px; }
@@ -90,7 +91,7 @@ HTML_PAGE = """
         .cell.called { background: #00FF00; color: white; }
         
         #draw-display { background: #DBA111; color: black; padding: 15px; border-radius: 10px; font-weight: bold; font-size: 1.8em; margin-bottom: 10px; position: sticky; top: 5px; z-index: 100; }
-        .history-box { background: #111; padding: 8px; border-radius: 8px; font-size: 0.7em; color: #00FF00; margin-bottom: 10px; max-height: 40px; overflow-y: auto; text-align: left; }
+        .history-box { background: #111; padding: 8px; border-radius: 8px; font-size: 0.7em; color: #00FF00; margin-bottom: 10px; max-height: 40px; overflow-y: auto; text-align: left; border: 1px solid #444; }
     </style>
 </head>
 <body>
@@ -103,12 +104,13 @@ HTML_PAGE = """
         </div>
 
         <div id="selection-stage">
-            <div class="ticket-selector">
-                <p>Baay'ina Tikeetii Filadhaa (1 - 20)</p>
-                <input type="number" id="t-count" class="count-input" value="1" min="1" max="20">
-                <p id="price-tag" style="color:#DBA111; margin: 10px 0;">Gatii: 10 ETB</p>
-                <button class="btn play-btn" onclick="startGame()">🎮 TAPHA JALQABI</button>
+            <p style="margin-bottom:10px;">Tikeetiiwwan 1-100 keessaa filadhu:</p>
+            <div class="grid-100" id="ticket-grid"></div>
+            <div style="background:#111; margin:15px 0; padding:10px; border-radius:10px;">
+                <span id="count-label">Tikeetii: 0</span> | 
+                <span id="price-label" style="color:#DBA111;">Gatii: 0 ETB</span>
             </div>
+            <button class="btn" style="background:#DBA111; color:black; font-size:1.1em;" onclick="startGame()">🎮 TAPHA JALQABI</button>
         </div>
 
         <div id="game-section" style="display:none;">
@@ -119,9 +121,8 @@ HTML_PAGE = """
 
         <div id="footer-menu" style="margin-top:20px;">
             <button class="btn" style="background:#2ecc71; color:white;" onclick="toggleDeposit()">💳 DEPOSIT</button>
-            <div id="deposit-info" style="display:none; background:#222; padding:15px; border-radius:10px; text-align:left; font-size:0.8em; border:1px solid #DBA111;">
+            <div id="deposit-info" style="display:none; background:#222; padding:15px; border-radius:10px; text-align:left; border:1px solid #DBA111;">
                 📱 Telebirr: 0974085753<br>
-                🏦 CBE: 1000659750973<br>
                 👤 Isayas Emana<br><br>
                 Screenshot Upload:<br>
                 <input type="file" id="ss-file" accept="image/*"><br><br>
@@ -134,12 +135,32 @@ HTML_PAGE = """
         let tg = window.Telegram.WebApp;
         tg.expand();
         let uid = tg.initDataUnsafe.user ? tg.initDataUnsafe.user.id : "123";
+        let selectedTickets = [];
 
-        document.getElementById('t-count').oninput = function() {
-            let c = this.value;
-            if(c > 20) this.value = 20;
-            document.getElementById('price-tag').innerText = "Gatii: " + (this.value * 10) + " ETB";
-        };
+        // 1-100 Grid uumuu
+        const grid = document.getElementById('ticket-grid');
+        for(let i=1; i<=100; i++) {
+            let d = document.createElement('div');
+            d.className = 't-num';
+            d.innerText = i;
+            d.onclick = function() {
+                if(selectedTickets.includes(i)) {
+                    selectedTickets = selectedTickets.filter(t => t !== i);
+                    this.classList.remove('selected');
+                } else {
+                    if(selectedTickets.length >= 20) { alert("Max 20 tikeetii qofa!"); return; }
+                    selectedTickets.push(i);
+                    this.classList.add('selected');
+                }
+                updateLabels();
+            };
+            grid.appendChild(d);
+        }
+
+        function updateLabels() {
+            document.getElementById('count-label').innerText = "Tikeetii: " + selectedTickets.length;
+            document.getElementById('price-label').innerText = "Gatii: " + (selectedTickets.length * 10) + " ETB";
+        }
 
         async function loadData() {
             const res = await fetch('/api/get_user_data', {
@@ -152,40 +173,39 @@ HTML_PAGE = """
         }
 
         async function startGame() {
-            let count = document.getElementById('t-count').value;
+            if(selectedTickets.length === 0) { alert("Maaloo dura tikeetii filadhaa!"); return; }
+            
             const res = await fetch('/api/start_game', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ user_id: uid, ticket_count: count })
+                body: JSON.stringify({ user_id: uid, tickets: selectedTickets })
             });
             const data = await res.json();
             if(data.error) { alert(data.error); return; }
 
             document.getElementById('bal-val').innerText = data.new_balance + " ETB";
             document.getElementById('selection-stage').style.display = "none";
+            document.getElementById('footer-menu').style.display = "none";
             document.getElementById('game-section').style.display = "block";
             
-            // Tikeetiiwwan hunda qopheessuu
             const wrapper = document.getElementById('cards-wrapper');
             wrapper.innerHTML = "";
             data.cards.forEach((card, idx) => {
                 let cardDiv = document.createElement('div');
                 cardDiv.className = 'card-container';
-                cardDiv.innerHTML = `<small>Tikeetii #${idx+1}</small>`;
-                let grid = document.createElement('div');
-                grid.className = 'card-grid';
-                
-                // Card is stored as columns, transpose to rows for grid display
+                cardDiv.innerHTML = `<small>Tikeetii #${data.ticket_numbers[idx]}</small>`;
+                let gridDiv = document.createElement('div');
+                gridDiv.className = 'card-grid';
                 for(let r=0; r<5; r++){
                     for(let c=0; c<5; c++){
                         let val = card[c][r];
                         let d = document.createElement('div');
                         d.className = 'cell'; d.innerText = val;
                         d.id = `t${idx}-v${val}`;
-                        grid.appendChild(d);
+                        gridDiv.appendChild(d);
                     }
                 }
-                cardDiv.appendChild(grid);
+                cardDiv.appendChild(gridDiv);
                 wrapper.appendChild(cardDiv);
             });
 
@@ -203,12 +223,10 @@ HTML_PAGE = """
                 historyArr.push(label);
                 document.getElementById('history').innerText = "Kuusaa: " + historyArr.join(", ");
                 
-                // Tikeetiiwwan hunda irratti check gochuu
                 data.cards.forEach((_, idx) => {
                     let cell = document.getElementById(`t${idx}-v${numOnly}`);
                     if(cell) cell.classList.add('called');
                 });
-
                 i++;
             }, 1400);
         }
@@ -247,7 +265,7 @@ bot = telebot.TeleBot(TOKEN)
 def start(message):
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("🎰 BINGO BANAADHU", web_app=types.WebAppInfo(url="https://bingo-ethiopia-bot.onrender.com")))
-    bot.send_message(message.chat.id, "👋 **Baga nagaan dhuftan!**\n\nBingo Ethiopia haala haaraan qophaa'ee jira. Tikeetii hanga 20 filattanii taphachuu dandeessu.", reply_markup=markup, parse_mode='Markdown')
+    bot.send_message(message.chat.id, "👋 **Baga nagaan dhuftan!**\n\nBingo Ethiopia irratti lakkoofsa tikeetii 1-100 keessaa kan barbaaddan filattanii taphachuu dandeessu.", reply_markup=markup, parse_mode='Markdown')
 
 if __name__ == "__main__":
     Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))).start()
