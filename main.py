@@ -17,28 +17,26 @@ def home():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Bingo Ethiopia - Winner Display</title>
+        <title>Bingo Ethiopia - Pro</title>
         <script src="https://telegram.org/js/telegram-web-app.js"></script>
         <style>
-            body { font-family: sans-serif; background: #001f3f; color: white; text-align: center; padding: 10px; margin: 0; }
-            .card { background: #003366; padding: 15px; border-radius: 15px; border: 1px solid #00d4ff; }
-            h1 { color: #ffcc00; font-size: 22px; margin: 5px; }
+            body { font-family: 'Segoe UI', sans-serif; background: #050a14; color: white; text-align: center; padding: 10px; margin: 0; }
+            .card { background: linear-gradient(145deg, #001f3f, #003366); padding: 20px; border-radius: 20px; border: 2px solid #00d4ff; box-shadow: 0 0 20px rgba(0,212,255,0.3); }
+            h1 { color: #ffcc00; font-size: 26px; text-transform: uppercase; letter-spacing: 3px; margin: 10px 0; }
             
-            /* Grid */
-            .grid-container { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin: 15px 0; max-height: 250px; overflow-y: auto; padding: 5px; background: #001a33; border-radius: 10px; }
-            .num-btn { background: #004080; border: 1px solid #007bff; color: white; padding: 10px 0; border-radius: 5px; cursor: pointer; }
-            .num-btn.selected { background: #ffcc00; color: #000; font-weight: bold; }
+            /* Selection Grid Style */
+            .grid-container { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 15px 0; max-height: 280px; overflow-y: auto; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 12px; border: 1px solid #007bff; }
+            .num-btn { background: #1a2a44; border: 1px solid #007bff; color: white; padding: 12px 0; border-radius: 8px; cursor: pointer; font-size: 16px; transition: 0.3s; }
+            .num-btn.selected { background: #ffcc00; color: #000; font-weight: bold; transform: scale(1.1); box-shadow: 0 0 10px #ffcc00; }
             
-            .summary-box { background: #002b55; padding: 10px; border-radius: 8px; margin: 10px 0; font-size: 14px; border-left: 5px solid #ffcc00; text-align: left; }
-            .timer { font-size: 18px; color: #ff4444; font-weight: bold; }
+            .timer-box { font-size: 20px; color: #ff4444; font-weight: bold; background: #1a0000; padding: 10px; border-radius: 10px; border: 1px solid #ff4444; display: inline-block; margin-bottom: 10px; }
             
             /* Game UI */
-            .call-circle { font-size: 50px; font-weight: bold; background: #fff; color: #003366; width: 90px; height: 90px; line-height: 90px; border-radius: 50%; display: inline-block; margin: 10px; border: 4px solid #ffcc00; }
-            .win-box { display: none; background: #28a745; color: white; padding: 15px; border-radius: 10px; margin-top: 15px; border: 2px solid #fff; animation: bounce 0.5s infinite alternate; }
-            @keyframes bounce { from { transform: scale(1); } to { transform: scale(1.05); } }
+            .call-display { display: none; margin-top: 20px; }
+            .call-circle { font-size: 60px; font-weight: bold; background: radial-gradient(circle, #fff, #ddd); color: #003366; width: 110px; height: 110px; line-height: 110px; border-radius: 50%; display: inline-block; border: 5px solid #ffcc00; box-shadow: 0 0 25px #ffcc00; }
             
-            .history { font-size: 12px; background: #001a33; padding: 10px; border-radius: 8px; height: 70px; overflow-y: auto; margin-top: 10px; }
-            .win-num-highlight { color: #ffcc00; font-weight: bold; text-decoration: underline; }
+            .win-box { display: none; background: #28a745; color: white; padding: 20px; border-radius: 15px; margin-top: 20px; border: 3px solid #fff; }
+            .history { font-size: 14px; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 10px; height: 80px; overflow-y: auto; margin-top: 15px; border: 1px solid #333; }
         </style>
     </head>
     <body>
@@ -47,29 +45,25 @@ def home():
         <h1>BINGO ETHIOPIA</h1>
         
         <div id="selection-screen">
-            <div class="timer" id="timer">01:00</div>
+            <div class="timer-box">T-Minus: <span id="timer">01:00</span></div>
+            <p style="font-size:14px; color:#00ffcc;">Karteelaa Kee Filadhu (Hanga 10):</p>
             <div class="grid-container" id="grid"></div>
-            <div class="summary-box">
-                <strong>Karteelaa Filatame:</strong><br>
-                <span id="selected-list">Hiriira filadhu...</span>
-            </div>
-            <button style="background: #28a745; color: white; padding: 15px; border: none; border-radius: 10px; width: 100%; font-size: 18px; font-weight: bold;" onclick="confirmSelection()">TAPHA JALQABI</button>
+            <div id="selected-summary" style="font-size:12px; color:#aaa; margin-bottom:10px;">Filatame: ---</div>
+            <button style="background:#28a745; color:white; padding:15px; border:none; border-radius:12px; width:100%; font-size:18px; font-weight:bold;" onclick="manualStart()">TAPHA JALQABI</button>
         </div>
 
         <div id="game-screen" style="display:none;">
-            <p style="color: #ffcc00;">[ LINE 1 MODE ]</p>
-            <div id="call-area">
-                <span id="currentLetter" style="font-size: 24px; color: #ffcc00; display: block;">WAIT...</span>
+            <div class="call-display" id="call-area" style="display:block;">
+                <span id="currentLetter" style="font-size: 28px; color: #ffcc00; display: block; font-weight: bold;">WAAMAMAA JIRA...</span>
                 <div class="call-circle" id="currentNum">?</div>
             </div>
 
             <div id="winner-display" class="win-box">
                 <h2 style="margin:0;">🎊 BINGO! 🎊</h2>
-                <p style="margin:5px 0;">Lakkofsa Injifate: <span id="win-number-text" style="font-size: 24px; font-weight: bold;"></span></p>
-                <p>Maallaqa kee fudhu!</p>
+                <p>Injifate: <span id="win-number-text" style="font-size: 30px; font-weight: bold;"></span></p>
             </div>
 
-            <p style="margin-top:10px;">Karteelaa Kee: <span id="myTicketsDisp" style="color:#00ffcc;"></span></p>
+            <p style="margin-top:20px; font-weight:bold;">Karteelaa Kee: <span id="myTicketsDisp" style="color:#00ffcc;"></span></p>
             <div class="history" id="historyBox">History: </div>
         </div>
     </div>
@@ -83,6 +77,7 @@ def home():
         let called = [];
         let isGameOver = false;
 
+        // Grid 1-100 uumuu
         const grid = document.getElementById('grid');
         for (let i = 1; i <= 100; i++) {
             let btn = document.createElement('button');
@@ -96,24 +91,32 @@ def home():
                     selectedNumbers.push(i);
                     btn.classList.add('selected');
                 }
-                document.getElementById('selected-list').innerText = selectedNumbers.sort((a,b)=>a-b).join(', ');
+                document.getElementById('selected-summary').innerText = "Filatame: " + selectedNumbers.join(', ');
             };
             grid.appendChild(btn);
         }
 
+        // Timer (Daqiiqaa 1)
         let countdown = setInterval(() => {
             timerSeconds--;
             let m = Math.floor(timerSeconds/60), s = timerSeconds%60;
             document.getElementById('timer').innerText = `${m<10?'0':''}${m}:${s<10?'0':''}${s}`;
-            if (timerSeconds <= 0) confirmSelection();
+            if (timerSeconds <= 0) {
+                clearInterval(countdown);
+                confirmSelection(); // Ofumaan eegala
+            }
         }, 1000);
 
-        function confirmSelection() {
+        function manualStart() {
             if (selectedNumbers.length === 0) return alert("Karteelaa filadhu!");
+            confirmSelection();
+        }
+
+        function confirmSelection() {
             clearInterval(countdown);
             document.getElementById('selection-screen').style.display = 'none';
             document.getElementById('game-screen').style.display = 'block';
-            document.getElementById('myTicketsDisp').innerText = selectedNumbers.join(', ');
+            document.getElementById('myTicketsDisp').innerText = selectedNumbers.length > 0 ? selectedNumbers.join(', ') : "Filannoo hin qabdu";
             nextCall();
         }
 
@@ -130,19 +133,16 @@ def home():
             
             document.getElementById('currentLetter').innerText = L;
             document.getElementById('currentNum').innerText = n;
-            
-            let histSpan = selectedNumbers.includes(n) ? `<span class="win-num-highlight">${L}-${n}</span>` : `${L}-${n}`;
-            document.getElementById('historyBox').innerHTML += histSpan + ", ";
+            document.getElementById('historyBox').innerHTML += `${L}-${n}, `;
 
             if (selectedNumbers.includes(n)) {
                 isGameOver = true;
                 document.getElementById('winner-display').style.display = 'block';
                 document.getElementById('win-number-text').innerText = `${L}-${n}`;
-                document.getElementById('call-area').style.opacity = "0.5";
-                tg.MainButton.setText("INJIFATE - MAALLAQA FUDHU").show();
+                tg.MainButton.setText("INJIFATTEETTA!").show();
                 tg.HapticFeedback.notificationOccurred('success');
             } else {
-                setTimeout(nextCall, 3500);
+                setTimeout(nextCall, 4000);
             }
         }
     </script>
@@ -153,7 +153,7 @@ def home():
 # 3. BOT & WEBHOOK
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    bot.send_message(message.chat.id, "Baga nagaan dhuftan! Bingo Ethiopia Line 1 Win Mode.\nKarteelaa 100 keessaa filadhu.", 
+    bot.send_message(message.chat.id, "Baga nagaan dhuftan! Bingo Ethiopia Line 1 Win Mode.\n\nDaqiiqaa 1 qabdu filachuuf!", 
                      reply_markup=ReplyKeyboardMarkup(resize_keyboard=True).add(KeyboardButton("🎮 Bingo Bani", web_app=WebAppInfo(url=RENDER_URL))))
 
 @app.route('/' + TOKEN, methods=['POST'])
