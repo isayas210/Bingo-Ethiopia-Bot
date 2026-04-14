@@ -10,7 +10,7 @@ app = Flask('')
 # --- DATABASE SALPHAA ---
 user_balances = {}
 
-# --- BINGO LOGIC (B-I-N-G-O Prefix) ---
+# --- BINGO LOGIC ---
 def get_bingo_label(num):
     if 1 <= num <= 15: return f"B-{num}"
     if 16 <= num <= 30: return f"I-{num}"
@@ -35,20 +35,12 @@ def get_data():
     if uid not in user_balances: user_balances[uid] = 10
     return jsonify({"balance": user_balances[uid]})
 
-@app.route('/api/deposit', methods=['POST'])
-def api_deposit():
+@app.route('/api/confirm_deposit', methods=['POST'])
+def confirm_deposit():
     uid = str(request.json.get('user_id'))
+    # Ofumaan mirkaneessuuf (Auto-verification simulation)
     user_balances[uid] = user_balances.get(uid, 10) + 50
     return jsonify({"new_balance": user_balances[uid]})
-
-@app.route('/api/withdraw', methods=['POST'])
-def api_withdraw():
-    uid = str(request.json.get('user_id'))
-    current_bal = user_balances.get(uid, 0)
-    if current_bal < 50:
-        return jsonify({"error": "Baasuuf yoo xiqqaate 50 ETB qabaachuu qabdu!"}), 400
-    user_balances[uid] = 0 # Simulation: Hunda baasuu
-    return jsonify({"new_balance": 0, "msg": "Qarshiin keessan gara Telebirr-itti ergameera!"})
 
 @app.route('/api/start_game', methods=['POST'])
 def api_start():
@@ -57,7 +49,6 @@ def api_start():
         return jsonify({"error": "Balance gahaa miti!"}), 400
     user_balances[uid] -= 10
     card = generate_bingo_card()
-    # Lakkoofsota waamaman prefix waliin qopheessuu
     raw_drawn = random.sample(range(1, 76), 15)
     labeled_drawn = [get_bingo_label(n) for n in raw_drawn]
     return jsonify({"card": card, "drawn": labeled_drawn, "new_balance": user_balances[uid]})
@@ -68,7 +59,7 @@ def api_win():
     user_balances[uid] = user_balances.get(uid, 0) + 50
     return jsonify({"new_balance": user_balances[uid]})
 
-# --- FRONTEND (WITHDRAW & BINGO LABELS) ---
+# --- FRONTEND (DEPOSIT SCREENSHOT LOGIC) ---
 HTML_PAGE = """
 <!DOCTYPE html>
 <html>
@@ -76,40 +67,50 @@ HTML_PAGE = """
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <title>Bingo Ethiopia Super App</title>
+    <title>Bingo Ethiopia Auto-Pay</title>
     <style>
-        body { background: #001489; color: white; font-family: 'Segoe UI', sans-serif; text-align: center; margin: 0; padding: 10px; }
-        .app-container { border: 2px solid #DBA111; border-radius: 20px; padding: 15px; background: rgba(0,0,0,0.9); min-height: 90vh; display: flex; flex-direction: column; }
-        .balance-card { background: #000; border: 2px solid #00FF00; padding: 10px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 0 10px #00FF00; }
-        .btn { padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 8px; font-size: 1em; }
+        body { background: #001489; color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 10px; }
+        .app-container { border: 2px solid #DBA111; border-radius: 20px; padding: 15px; background: rgba(0,0,0,0.95); min-height: 90vh; }
+        .balance-card { background: #000; border: 2px solid #00FF00; padding: 10px; border-radius: 12px; margin-bottom: 15px; }
+        .btn { padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 8px; }
         .play-btn { background: #DBA111; color: black; font-size: 1.2em; }
         .dep-btn { background: #2ecc71; color: white; }
         .with-btn { background: #e74c3c; color: white; }
+        .info-panel { background: #222; padding: 15px; border-radius: 10px; text-align: left; font-size: 0.85em; display: none; margin-bottom: 10px; border: 1px solid #DBA111; }
         .card-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; margin-top: 10px; }
         .cell { background: white; color: black; padding: 10px 2px; border-radius: 4px; font-weight: bold; font-size: 0.8em; }
-        .cell.called { background: #00FF00; color: white; transform: scale(1.05); border: 1px solid white; }
-        #draw-display { background: #DBA111; color: black; padding: 15px; border-radius: 10px; margin: 10px 0; font-weight: bold; font-size: 1.5em; border: 2px solid white; }
-        .win-msg { color: #00FF00; font-weight: bold; font-size: 1.4em; }
+        .cell.called { background: #00FF00; color: white; }
     </style>
 </head>
 <body>
     <div class="app-container">
-        <h2 style="color:#DBA111; margin-bottom:5px;">🎰 BINGO ETHIOPIA</h2>
+        <h2 style="color:#DBA111;">🎰 BINGO ETHIOPIA</h2>
         
         <div class="balance-card">
-            <small style="color:#aaa;">HERREGA KEESSAN</small>
-            <h3 id="bal-val" style="margin:5px 0; font-size:2em; color:#00FF00;">-- ETB</h3>
+            <small>BALANCE</small>
+            <h3 id="bal-val" style="color:#00FF00; font-size:2em; margin:5px 0;">-- ETB</h3>
         </div>
 
         <div id="main-menu">
-            <button class="btn play-btn" onclick="startGame()">🎮 TAPHA JALQABI (-10 ETB)</button>
-            <button class="btn dep-btn" onclick="deposit()">💳 QARSHII GALCHI</button>
-            <button class="btn with-btn" onclick="withdraw()">💰 QARSHII BAASI (WITHDRAW)</button>
+            <button class="btn play-btn" onclick="startGame()">🎮 TAPHA JALQABI</button>
+            <button class="btn dep-btn" onclick="toggleDeposit()">💳 DEPOSIT (QARSHII GALCHI)</button>
+            
+            <div id="deposit-info" class="info-panel">
+                <b style="color:#DBA111;">Kaffaltii (Isayas Emana):</b><br>
+                📱 Telebirr: 0974085753<br>
+                🏦 CBE: 1000659750973<br>
+                🔸 CBE Birr: 0974085753<br><br>
+                1. Kaffaltii raawwadhu.<br>
+                2. Screenshot botaaf ergi.<br>
+                3. Erga erganii booda kan gadii xuqi:<br><br>
+                <button class="btn" style="background:#00FF00; color:black; padding:5px;" onclick="confirmDep()">✅ MIRKANEESSI (DONE)</button>
+            </div>
+
+            <button class="btn with-btn" onclick="requestWithdraw()">💰 WITHDRAW (QARSHII BAASI)</button>
         </div>
 
         <div id="game-section" style="display:none;">
-            <div id="draw-display">Qophaa'aa...</div>
-            <div id="win-area"></div>
+            <div id="draw-display" style="background:#DBA111; color:black; padding:15px; border-radius:10px; font-weight:bold; font-size:1.5em; margin-bottom:10px;">...</div>
             <div class="card-grid" id="bingo-card"></div>
         </div>
     </div>
@@ -129,28 +130,27 @@ HTML_PAGE = """
             document.getElementById('bal-val').innerText = data.balance + " ETB";
         }
 
-        async function deposit() {
-            const res = await fetch('/api/deposit', {
+        function toggleDeposit() {
+            let panel = document.getElementById('deposit-info');
+            panel.style.display = (panel.style.display === 'block') ? 'none' : 'block';
+        }
+
+        async function confirmDep() {
+            const res = await fetch('/api/confirm_deposit', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ user_id: uid })
             });
             const data = await res.json();
             document.getElementById('bal-val').innerText = data.new_balance + " ETB";
+            alert("Mirkanaa'eera! 50 ETB siif dabalameera.");
+            toggleDeposit();
         }
 
-        async function withdraw() {
-            const res = await fetch('/api/withdraw', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ user_id: uid })
-            });
-            const data = await res.json();
-            if(data.error) { alert(data.error); }
-            else { 
-                alert(data.msg); 
-                document.getElementById('bal-val').innerText = "0 ETB";
-            }
+        function requestWithdraw() {
+            let bal = parseInt(document.getElementById('bal-val').innerText);
+            if (bal < 50) { alert("Yoo xiqqaate 50 ETB barbaachisa!"); }
+            else { tg.sendData("WITHDRAW_REQUEST_" + bal); tg.close(); }
         }
 
         async function startGame() {
@@ -179,7 +179,6 @@ HTML_PAGE = """
                 if(i >= data.drawn.length) {
                     clearInterval(timer);
                     document.getElementById('draw-display').innerText = "BINGO!";
-                    document.getElementById('win-area').innerHTML = "<p class='win-msg'>🎉 INJIFATTEETTA! +50 ETB</p>";
                     const winRes = await fetch('/api/claim_win', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
@@ -187,36 +186,18 @@ HTML_PAGE = """
                     });
                     const winData = await winRes.json();
                     document.getElementById('bal-val').innerText = winData.new_balance + " ETB";
-                    setTimeout(() => { location.reload(); }, 4000);
+                    setTimeout(() => { location.reload(); }, 5000);
                     return;
                 }
-                let label = data.drawn[i]; // Fkf: B-12
-                let numOnly = label.split('-')[1]; // 12 qofa baasuu cell-f
+                let label = data.drawn[i];
+                let numOnly = label.split('-')[1];
                 document.getElementById('draw-display').innerText = label;
                 let cell = document.getElementById('c-'+numOnly);
                 if(cell) cell.className = 'cell called';
                 i++;
-            }, 1500);
+            }, 1200);
         }
         window.onload = loadData;
     </script>
 </body>
 </html>
-"""
-
-@app.route('/')
-def home():
-    return render_template_string(HTML_PAGE)
-
-TOKEN = '8692359063:AAHteqfebC808tTmj6qvIdjiVJIXoXRTf4c'
-bot = telebot.TeleBot(TOKEN)
-
-@bot.message_handler(commands=['start'])
-def start(message):
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("🎰 BINGO LIVE BANAADHU", web_app=types.WebAppInfo(url="https://bingo-ethiopia-bot.onrender.com")))
-    bot.send_message(message.chat.id, "👋 **Baga nagaan dhuftan!**\n\nBingo Ethiopia haala haaraan qophaa'ee dhufeera. Hojiin hundi (Deposit, Withdraw, Game) App keessatti raawwatama.", reply_markup=markup, parse_mode='Markdown')
-
-if __name__ == "__main__":
-    Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))).start()
-    bot.infinity_polling()
