@@ -8,12 +8,11 @@ import requests
 
 # CONFIG
 BOT_TOKEN = "8692359063:AAHteqfebC808tTmj6qvIdjiVJIXoXRTf4c"
-# Admin ID kee (Asitti ID kee isa dhugaa bakka buusi)
 ADMIN_ID = 6365691079 
 bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask(__name__)
 
-# DATABASE (Fayyadamtoota kuusuuf)
+# DATABASE (Users balance kuusuuf)
 DB_FILE = "users_db.json"
 
 def load_db():
@@ -26,7 +25,8 @@ def load_db():
 def save_db(data):
     with open(DB_FILE, "w") as f: json.dump(data, f)
 
-# MENU JALQABAA (MAIN MENU)
+# --- TELEGRAM BOT LOGIC ---
+
 @bot.message_handler(commands=['start'])
 def start(message):
     db = load_db()
@@ -36,101 +36,60 @@ def start(message):
         save_db(db)
     
     markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    btn1 = telebot.types.KeyboardButton("🎮 Tapha Jalqabi")
-    btn2 = telebot.types.KeyboardButton("💰 Deposit")
-    btn3 = telebot.types.KeyboardButton("💸 Withdraw")
-    btn4 = telebot.types.KeyboardButton("📊 Herrega Koo")
-    markup.add(btn1, btn2, btn3, btn4)
+    markup.add("🎮 Tapha Jalqabi", "💰 Deposit", "💸 Withdraw", "📊 Herrega Koo")
     
-    welcome_text = (
-        f"<b>Baga nagaan dhufte, {message.from_user.first_name}!</b> 🇪🇹\n\n"
-        f"💰 Herrega kee: <b>{db[uid]['balance']:.2f} ETB</b>\n\n"
-        "Tapha jalqabuuf button gadii tuqi."
-    )
-    bot.send_message(message.chat.id, welcome_text, parse_mode="HTML", reply_markup=markup)
+    bot.send_message(message.chat.id, 
+        f"<b>Baga nagaan dhufte, {message.from_user.first_name}!</b>\n💰 Herrega kee: <b>{db[uid]['balance']:.2f} ETB</b>", 
+        parse_mode="HTML", reply_markup=markup)
 
-# HERREGA KOO
-@bot.message_handler(func=lambda m: m.text == "📊 Herrega Koo")
-def check_balance(message):
-    db = load_db()
-    uid = str(message.from_user.id)
-    bal = db.get(uid, {}).get("balance", 0)
-    bot.send_message(message.chat.id, f"💰 Herrega kee: <b>{bal:.2f} ETB</b>", parse_mode="HTML")
-
-# DEPOSIT HANDLER
 @bot.message_handler(func=lambda m: m.text == "💰 Deposit")
 def deposit(message):
     msg = (
         "<b>🏦 Akkaataa Kaffaltii:</b>\n"
-        "--------------------------\n"
-        "📱 <b>Telebirr:</b> <code>0974085753</code>\n"
-        "🏦 <b>CBE Bank:</b> <code>1000659750973</code>\n"
-        "--------------------------\n"
-        "⚠️ <b>Hubachiisa:</b> Erga kaffaltii raawwattanii booda, <b>Screenshot</b> nuuf ergaa. "
-        "Nutis herrega keessan ni dabalra."
+        "📱 Telebirr: <code>0974085753</code>\n"
+        "🏦 CBE Bank: <code>1000659750973</code>\n\n"
+        "⚠️ Erga kaffaltii raawwattanii booda, <b>Screenshot</b> nuuf ergaa."
     )
     bot.send_message(message.chat.id, msg, parse_mode="HTML")
 
-# WITHDRAW HANDLER
 @bot.message_handler(func=lambda m: m.text == "💸 Withdraw")
 def withdraw(message):
-    msg = (
-        "<b>💸 Maallaqa Baasuu:</b>\n\n"
-        "Hamma baasuu barbaaddanii fi Lakk. herrega keessanii nuuf barreessaa.\n"
-        "<i>Fkn: 500 ETB, Telebirr 09xxxxxxxx</i>"
-    )
-    bot.send_message(message.chat.id, msg, parse_mode="HTML")
+    bot.send_message(message.chat.id, "<b>💸 Withdraw:</b>\nHamma baasuu barbaaddanii fi Lakk. bilbilaa galchaa.\nFkn: 500 ETB, 09xxxxxxxx", parse_mode="HTML")
 
-# SCREENSHOT & REQUESTS HANDLING
 @bot.message_handler(content_types=['photo', 'text'])
 def handle_requests(message):
     uid = str(message.from_user.id)
-    # Screenshot yoo ta'e
     if message.content_type == 'photo':
         bot.forward_message(ADMIN_ID, message.chat.id, message.message_id)
-        bot.send_message(ADMIN_ID, f"🔔 <b>DEPOSIT REQUEST!</b>\nUser: {message.from_user.first_name}\nID: <code>{uid}</code>", parse_mode="HTML")
-        bot.send_message(message.chat.id, "✅ Screenshot keessan nu ga'eera. Mirkaneessinee herrega keessan ni dabalra.")
-    
-    # Withdraw request yoo ta'e (text)
-    elif "Withdraw" not in message.text and uid != str(ADMIN_ID):
-        if any(x in message.text.lower() for x in ["etb", "baasu", "birr"]):
-            bot.forward_message(ADMIN_ID, message.chat.id, message.message_id)
-            bot.send_message(ADMIN_ID, f"⚠️ <b>WITHDRAW REQUEST!</b>\nUser: {message.from_user.first_name}\nID: <code>{uid}</code>", parse_mode="HTML")
-            bot.send_message(message.chat.id, "✅ Gaaffiin keessan Admin bira ga'eera. Kaffaltiin isiniif ni raawwatama.")
+        bot.send_message(ADMIN_ID, f"🔔 <b>DEPOSIT!</b> ID: <code>{uid}</code>", parse_mode="HTML")
+        bot.send_message(message.chat.id, "✅ Screenshot keessan nu ga'eera.")
+    elif uid != str(ADMIN_ID) and any(x in message.text.lower() for x in ["etb", "birr", "baasu"]):
+        bot.forward_message(ADMIN_ID, message.chat.id, message.message_id)
+        bot.send_message(message.chat.id, "✅ Gaaffiin keessan Admin bira ga'eera.")
 
-# ADMIN: ADD BALANCE (Fkn: /add_12345_500)
 @bot.message_handler(commands=['add'])
-def add_balance_cmd(message):
+def add_money(message):
     if message.from_user.id == ADMIN_ID:
         try:
-            _, target_id, amount = message.text.split("_")
+            _, tid, amt = message.text.split("_")
             db = load_db()
-            if target_id in db:
-                db[target_id]["balance"] += float(amount)
+            if tid in db:
+                db[tid]["balance"] += float(amt)
                 save_db(db)
-                bot.send_message(ADMIN_ID, f"✅ User {target_id} irratti {amount} ETB dabalameera.")
-                bot.send_message(target_id, f"🎉 <b>Herregni kee dabalameera!</b>\n+{amount} ETB dabalame. Amma taphachuu dandeessa.", parse_mode="HTML")
-        except:
-            bot.send_message(ADMIN_ID, "Dogoggora! Akkasitti fayyadami: /add_USERID_AMOUNT")
+                bot.send_message(tid, f"🎉 Herregni kee <b>{amt} ETB</b> dabalameera!", parse_mode="HTML")
+                bot.send_message(ADMIN_ID, "Success!")
+        except: bot.send_message(ADMIN_ID, "Format: /add_ID_AMOUNT")
 
-# MINI APP HTML (V24 Stable)
+# --- WEB UI ---
 @app.route('/')
 def home():
-    return """
-    <h1 style='color:white; text-align:center;'>Bingo Ethiopia Live UI</h1>
-    """
+    return "<h1>Bingo Ethiopia Live is Running</h1>"
 
 def run_flask():
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
 
 if __name__ == "__main__":
-    t = Thread(target=run_flask)
-    t.daemon = True
-    t.start()
-    
-    # Force clear sessions
+    Thread(target=run_flask).start()
     requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook?drop_pending_updates=True")
-    time.sleep(20)
-    
-    print("Bot is running...")
+    time.sleep(20) # Conflict eeggannoo
     bot.infinity_polling(skip_pending_updates=True)
