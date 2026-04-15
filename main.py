@@ -23,27 +23,20 @@ def home():
             body { background-color: #0b0b0b; color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 0; overflow-x: hidden; }
             .nav { display: flex; justify-content: space-between; background: #0088cc; padding: 10px; font-weight: bold; position: sticky; top: 0; z-index: 100; }
             .wallet { background: #000; padding: 2px 10px; border-radius: 15px; color: #4caf50; border: 1px solid #4caf50; font-size: 0.85rem; }
-            
-            /* Mini UI Elements */
             .ball-container { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 5px auto; }
             .ball { font-size: 20px; color: #ffeb3b; border: 3px solid #0088cc; border-radius: 50%; width: 50px; height: 50px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #000; }
             .called-list { display: flex; flex-wrap: wrap; gap: 2px; justify-content: center; padding: 5px; background: #1a1a1a; margin: 5px auto; border-radius: 8px; min-height: 20px; max-width: 95%; }
             .called-num { font-size: 0.6rem; background: #333; padding: 1px 3px; border-radius: 2px; color: #888; }
             .called-num.recent { background: #0088cc; color: white; font-weight: bold; }
-
-            /* Tiny Card Grid */
             .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 6px; padding: 5px; }
             .card { background: #fff; color: #000; border-radius: 5px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
             .card-header { display: grid; grid-template-columns: repeat(5, 1fr); background: #d32f2f; color: white; font-size: 0.75rem; font-weight: bold; padding: 1px 0; }
             .b-grid { display: grid; grid-template-columns: repeat(5, 1fr); background: #ccc; gap: 1px; }
             .cell { background: #fff; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: bold; position: relative; }
             .cell.marked::after { content: ""; position: absolute; width: 60%; height: 60%; background: rgba(76, 175, 80, 0.8); border-radius: 50%; }
-            .card-footer { background: #eee; font-size: 0.45rem; padding: 1px; color: #666; }
-
             .selection-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; padding: 5px; }
             .t-num { aspect-ratio: 1; background: #222; display: flex; align-items: center; justify-content: center; font-size: 0.6rem; border-radius: 2px; border: 1px solid #333; }
             .t-num.selected { background: #4caf50 !important; color: white; }
-            
             #win-overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:2000; flex-direction:column; align-items:center; justify-content:center; }
         </style>
     </head>
@@ -68,20 +61,17 @@ def home():
         </div>
 
         <div id="game-view" style="display:none;">
-            <div id="game-info-bar" style="padding: 5px; font-size: 0.7rem; font-weight: bold; color: #4caf50;"></div>
             <div class="ball-container">
                 <div class="ball">
                     <span id="b-letter" style="font-size:0.5rem; color:#0088cc;">-</span>
                     <span id="b-num">--</span>
                 </div>
                 <div style="text-align: left;">
-                    <div style="font-size: 0.5rem; color: #888;">Lakkofsota waamaman:</div>
+                    <div style="font-size: 0.5rem; color: #888;">Seenaa:</div>
                     <div class="called-list" id="called-history"></div>
                 </div>
             </div>
-            <div id="my-active-section">
-                <div class="cards-grid" id="active-cards-ui"></div>
-            </div>
+            <div class="cards-grid" id="active-cards-ui"></div>
         </div>
 
         <script>
@@ -90,9 +80,8 @@ def home():
             updateUI();
 
             let selectedIDs = [];
-            function createGrid(containerId) {
-                const container = document.getElementById(containerId);
-                container.innerHTML = "";
+            function createGrid() {
+                const container = document.getElementById('grid-100');
                 for(let i=1; i<=100; i++) {
                     const d = document.createElement('div'); d.className = 't-num'; d.innerText = i;
                     d.onclick = () => {
@@ -106,9 +95,9 @@ def home():
                     container.appendChild(d);
                 }
             }
-            createGrid('grid-100');
+            createGrid();
 
-            // TIMER 30 SECONDS
+            // TIMER SIIRREEFFAME (SEKONDII 30)
             setInterval(() => {
                 let now = Math.floor(Date.now() / 1000);
                 let remaining = 30 - (now % 30);
@@ -122,9 +111,8 @@ def home():
                 gameStarted = true;
                 document.getElementById('select-view').style.display = 'none';
                 document.getElementById('game-view').style.display = 'block';
-                
                 let mySelection = [...selectedIDs];
-                selectedIDs = []; // Reset for next round
+                selectedIDs = [];
 
                 for(let id=1; id<=100; id++) {
                     let card = { id: id, nums: genBingo(), marks: new Array(25).fill(false), isMine: mySelection.includes(id) };
@@ -148,7 +136,7 @@ def home():
 
             function renderCard(card) {
                 const div = document.createElement('div'); div.className = 'card';
-                div.innerHTML = `<div class="card-header"><div>B</div><div>I</div><div>N</div><div>G</div><div>O</div></div><div class="b-grid" id="g-${card.id}"></div><div class="card-footer">ID: #${card.id}</div>`;
+                div.innerHTML = `<div class="card-header"><div>B</div><div>I</div><div>N</div><div>G</div><div>O</div></div><div class="b-grid" id="g-${card.id}"></div>`;
                 document.getElementById('active-cards-ui').appendChild(div);
                 card.nums.forEach((n, i) => {
                     const cell = document.createElement('div'); cell.className = 'cell'; cell.id = `c-${card.id}-${i}`;
@@ -166,7 +154,7 @@ def home():
                     calledNums.push(p);
                     document.getElementById('b-letter').innerText = "BINGO"[Math.floor((p-1)/15)];
                     document.getElementById('b-num').innerText = p;
-                    document.getElementById('called-history').innerHTML = calledNums.slice(-15).map(n => `<div class="called-num ${n===p?'recent':''}">${n}</div>`).join("");
+                    document.getElementById('called-history').innerHTML = calledNums.slice(-10).map(n => `<div class="called-num ${n===p?'recent':''}">${n}</div>`).join("");
 
                     allActiveCards.forEach(card => {
                         let idx = card.nums.indexOf(p);
@@ -179,7 +167,7 @@ def home():
                         }
                         if(check(card.marks)) { clearInterval(loop); showWin(card); }
                     });
-                }, 2500);
+                }, 2000);
             }
 
             function check(m) {
@@ -192,11 +180,9 @@ def home():
                 overlay.style.display = 'flex';
                 document.getElementById('win-msg').innerText = card.isMine ? `MO'ATTAATTA! Kaartellaan #${card.id} mo'ateera!` : `Kaartellaan #${card.id} mo'ateera!`;
                 if(card.isMine) { balance += 700; updateUI(); }
-
-                // RESTART AFTER 2 SECONDS
-                setTimeout(() => {
-                    location.reload();
-                }, 2000);
+                
+                // SEKONDII 2 BOODA DEEBISUU
+                setTimeout(() => { location.reload(); }, 2000);
             }
         </script>
     </body>
@@ -212,12 +198,12 @@ if __name__ == "__main__":
     t.daemon = True
     t.start()
     
-    # Conflict prevention delay
-    time.sleep(20)
+    # Conflict Fix: Sekondii 25 eeggannoo
+    time.sleep(25)
     
     while True:
         try:
             bot.remove_webhook()
             bot.infinity_polling(timeout=10, long_polling_timeout=5)
         except Exception:
-            time.sleep(15)
+            time.sleep(10)
