@@ -1,5 +1,6 @@
 import os
 import telebot
+import time
 from flask import Flask, request
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
 
@@ -16,148 +17,158 @@ def home():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Bingo Ethiopia - Traditional Card</title>
+        <title>Bingo Ethiopia - Live 24/7</title>
         <script src="https://telegram.org/js/telegram-web-app.js"></script>
         <style>
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #050a14; color: white; text-align: center; margin: 0; padding: 10px; }
+            body { font-family: 'Segoe UI', sans-serif; background: #050a14; color: white; text-align: center; margin: 0; padding: 10px; }
             .card { background: #001f3f; border: 2px solid #00d4ff; border-radius: 15px; padding: 15px; box-shadow: 0 0 20px #00d4ff; }
             
-            /* Selection Grid */
-            .grid-100 { display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px; max-height: 250px; overflow-y: auto; background: rgba(0,0,0,0.5); padding: 5px; border-radius: 8px; border: 1px solid #333; }
-            .n-btn { background: #1a2a44; border: 1px solid #007bff; color: white; padding: 10px 0; border-radius: 4px; font-size: 10px; cursor: pointer; }
-            .n-btn.active { background: #ffcc00; color: #000; font-weight: bold; }
+            /* Ball Style */
+            .ball-zone { margin: 15px 0; }
+            .ball-letter { font-size: 24px; color: #ffcc00; font-weight: bold; display: block; margin-bottom: -10px; }
+            .ball-num { font-size: 60px; font-weight: bold; background: white; color: #001f3f; width: 110px; height: 110px; line-height: 110px; border-radius: 50%; border: 6px solid #ffcc00; display: inline-block; box-shadow: 0 0 25px #ffcc00; }
 
-            /* Bingo Table UI */
-            .bingo-card { width: 100%; border-collapse: collapse; margin-top: 20px; background: #000; border: 3px solid #ffcc00; border-radius: 10px; overflow: hidden; }
-            .bingo-card th { background: #ffcc00; color: #000; padding: 10px 0; font-size: 20px; border-bottom: 2px solid #ffcc00; }
-            .bingo-card td { border: 1px solid #333; height: 50px; width: 20%; font-size: 16px; font-weight: bold; background: #1a2a44; }
-            .bingo-card td.marked { background: #28a745; color: white; box-shadow: inset 0 0 10px #fff; transition: 0.5s; }
+            /* Bingo Table */
+            .bingo-card { width: 100%; border-collapse: collapse; background: #000; border: 3px solid #ffcc00; border-radius: 10px; overflow: hidden; }
+            .bingo-card th { background: #ffcc00; color: #000; padding: 10px 0; font-size: 22px; }
+            .bingo-card td { border: 1px solid #333; height: 50px; width: 20%; font-size: 18px; font-weight: bold; background: #1a2a44; }
+            .bingo-card td.marked { background: #28a745; color: white; box-shadow: inset 0 0 10px #fff; transform: scale(0.95); transition: 0.4s; }
 
-            .ball-zone { margin: 20px 0; }
-            .ball { font-size: 55px; font-weight: bold; background: white; color: #001f3f; width: 100px; height: 100px; line-height: 100px; border-radius: 50%; border: 6px solid #ffcc00; display: inline-block; box-shadow: 0 0 20px #ffcc00; }
-            .win-msg { display: none; background: #28a745; padding: 15px; border-radius: 10px; border: 3px solid #fff; margin-bottom: 15px; animation: pulse 1s infinite; }
-            @keyframes pulse { 0% {transform: scale(1);} 50% {transform: scale(1.05);} 100% {transform: scale(1);} }
-            .timer { font-size: 22px; color: #ff4444; font-weight: bold; margin-bottom: 10px; }
+            .status-box { background: rgba(0,0,0,0.5); padding: 10px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #00d4ff; }
+            .timer-text { font-size: 22px; color: #ff4444; font-weight: bold; }
+            .win-msg { display: none; background: #28a745; padding: 20px; border-radius: 15px; border: 3px solid #fff; position: fixed; top: 20%; left: 10%; right: 10%; z-index: 100; box-shadow: 0 0 50px #000; }
         </style>
     </head>
     <body>
     <div class="card">
-        <h2 style="color:#ffcc00; margin:5px;">BINGO ETHIOPIA</h2>
+        <h2 style="color:#ffcc00; margin:5px;">BINGO ETHIOPIA LIVE</h2>
         
-        <div id="selection-stage">
-            <div class="timer">Hafe: <span id="time-left">40</span>s</div>
-            <p style="font-size:13px; color:#00ffcc;">Qubee B-I-N-G-O jalatti lakkofsa 5-5 (25) filadhu:</p>
-            <div class="grid-100" id="picker"></div>
-            <p id="stat" style="margin-top:10px;">Filatame: 0/25</p>
-            <button onclick="confirmStart()" style="background:#28a745; color:white; border:none; padding:15px; width:100%; border-radius:10px; font-weight:bold; cursor:pointer;">TIKEETII KUTI</button>
+        <div class="status-box">
+            <div id="setup-view">
+                <div class="timer-text">Cufamuuf: <span id="timer">40</span>s</div>
+                <p style="font-size:12px;">Tikeetiin keessan ofumaan kallaattiin qophaa'a...</p>
+            </div>
+            <div id="game-info" style="display:none;">
+                <p style="color:#00ffcc; margin:0;">Taphni deemaa jira...</p>
+            </div>
         </div>
 
-        <div id="game-stage" style="display:none;">
-            <div class="ball-zone"><div class="ball" id="currentBall">?</div></div>
-            <div class="win-msg" id="winAlert">
-                <h1 style="margin:0;">🎊 BINGO! 🎊</h1>
-                <p>SARARRI GUUTAMEERA!</p>
-            </div>
-            
-            <table class="bingo-card">
-                <thead>
-                    <tr><th>B</th><th>I</th><th>N</th><th>G</th><th>O</th></tr>
-                </thead>
-                <tbody id="bingo-body">
-                    </tbody>
-            </table>
-            <div id="logs" style="font-size:12px; color:#aaa; margin-top:15px; text-align:left;">History: </div>
+        <div class="ball-zone">
+            <span class="ball-letter" id="callLetter">...</span>
+            <div class="ball-num" id="callNum">?</div>
         </div>
+
+        <table class="bingo-card">
+            <thead>
+                <tr><th>B</th><th>I</th><th>N</th><th>G</th><th>O</th></tr>
+            </thead>
+            <tbody id="bingo-body">
+                </tbody>
+        </table>
+
+        <div id="winArea" class="win-msg">
+            <h1 style="margin:0;">🎊 BINGO! 🎊</h1>
+            <p>SARARRI GUUTAMEERA!</p>
+            <button onclick="location.reload()" style="padding:10px; border-radius:5px; border:none; background:white; font-weight:bold;">Taphatti Deebi'i</button>
+        </div>
+
+        <div id="history" style="font-size:11px; color:#aaa; margin-top:20px; text-align:left;">Galmee: </div>
     </div>
 
     <script>
         let tg = window.Telegram.WebApp;
-        let count = 40;
-        let selected = [];
-        let called = [];
-        let isOver = false;
+        let timeLeft = 40;
+        let isGameOver = false;
+        let calledNumbers = [];
+        let myNumbers = [];
 
-        // Picker 1-100
-        const picker = document.getElementById('picker');
-        for(let i=1; i<=100; i++) {
-            let b = document.createElement('button');
-            b.className = 'n-btn'; b.innerText = i;
-            b.onclick = () => {
-                if(selected.includes(i)) {
-                    selected = selected.filter(x => x !== i); b.classList.remove('active');
-                } else if(selected.length < 25) {
-                    selected.push(i); b.classList.add('active');
-                }
-                document.getElementById('stat').innerText = "Filatame: " + selected.length + "/25";
-            };
-            picker.appendChild(b);
-        }
-
-        let timerId = setInterval(() => {
-            count--; document.getElementById('time-left').innerText = count;
-            if(count <= 0) { clearInterval(timerId); confirmStart(); }
-        }, 1000);
-
-        function confirmStart() {
-            clearInterval(timerId);
-            while(selected.length < 25) {
-                let r = Math.floor(Math.random()*100)+1;
-                if(!selected.includes(r)) selected.push(r);
-            }
-            document.getElementById('selection-stage').style.display = 'none';
-            document.getElementById('game-stage').style.display = 'block';
-            
-            // Generate Bingo Table Rows (5x5)
+        // 1. Tikeetii qopheessuu (B: 1-20, I: 21-40, ...)
+        function createTicket() {
             const tbody = document.getElementById('bingo-body');
+            let ticketData = [];
             for(let row=0; row<5; row++) {
                 let tr = document.createElement('tr');
                 for(let col=0; col<5; col++) {
+                    let min = (col * 20) + 1;
+                    let max = (col * 20) + 20;
+                    let val;
+                    do { val = Math.floor(Math.random() * (max - min + 1)) + min; } while(ticketData.includes(val));
+                    ticketData.push(val);
+                    
                     let td = document.createElement('td');
-                    let val = selected[row * 5 + col];
                     td.id = 'cell-' + val;
                     td.innerText = val;
                     tr.appendChild(td);
                 }
                 tbody.appendChild(tr);
             }
-            drawBall();
+            myNumbers = ticketData;
         }
 
-        function drawBall() {
-            if(called.length >= 100 || isOver) return;
-            let n; do { n = Math.floor(Math.random()*100)+1; } while(called.includes(n));
-            called.push(n);
-            document.getElementById('currentBall').innerText = n;
-            document.getElementById('logs').innerHTML += n + ", ";
+        createTicket();
 
+        // 2. Timer Logic (Hojiirra itti fufa)
+        let timerId = setInterval(() => {
+            timeLeft--;
+            document.getElementById('timer').innerText = timeLeft;
+            if(timeLeft <= 0) {
+                clearInterval(timerId);
+                document.getElementById('setup-view').style.display = 'none';
+                document.getElementById('game-info').style.display = 'block';
+                startDrawing();
+            }
+        }, 1000);
+
+        function getLetter(n) {
+            if(n <= 20) return "B";
+            if(n <= 40) return "I";
+            if(n <= 60) return "N";
+            if(n <= 80) return "G";
+            return "O";
+        }
+
+        // 3. Drawing Logic
+        function startDrawing() {
+            if(calledNumbers.length >= 100 || isGameOver) return;
+            
+            let n;
+            do { n = Math.floor(Math.random() * 100) + 1; } while(calledNumbers.includes(n));
+            calledNumbers.push(n);
+            
+            let L = getLetter(n);
+            document.getElementById('callLetter').innerText = L;
+            document.getElementById('callNum').innerText = n;
+            document.getElementById('history').innerHTML += L + "-" + n + ", ";
+
+            // Mark check
             let match = document.getElementById('cell-' + n);
             if(match) {
                 match.classList.add('marked');
-                checkWin();
+                checkBingo();
             }
-            if(!isOver) setTimeout(drawBall, 3500);
+
+            if(!isGameOver) setTimeout(startDrawing, 3000);
         }
 
-        function checkWin() {
+        function checkBingo() {
             const cells = document.querySelectorAll('td');
             let board = [];
             cells.forEach(c => board.push(c.classList.contains('marked')));
 
-            // Check Horizontal
+            // Check Horizontal Rows
             for (let i = 0; i < 25; i += 5) {
-                if (board[i] && board[i+1] && board[i+2] && board[i+3] && board[i+4]) announceWin();
+                if (board[i] && board[i+1] && board[i+2] && board[i+3] && board[i+4]) win();
             }
-            // Check Vertical
+            // Check Vertical Columns
             for (let i = 0; i < 5; i++) {
-                if (board[i] && board[i+5] && board[i+10] && board[i+15] && board[i+20]) announceWin();
+                if (board[i] && board[i+5] && board[i+10] && board[i+15] && board[i+20]) win();
             }
         }
 
-        function announceWin() {
-            if(isOver) return;
-            isOver = true;
-            document.getElementById('winAlert').style.display = 'block';
-            tg.MainButton.setText("INJIFATTEETTA! - MAALLAQA FUDHU").show();
+        function win() {
+            isGameOver = true;
+            document.getElementById('winArea').style.display = 'block';
+            tg.MainButton.setText("BINGO! - MAALLAQA FUDHU").show();
             tg.HapticFeedback.notificationOccurred('success');
         }
     </script>
@@ -167,7 +178,7 @@ def home():
 
 @bot.message_handler(commands=['start'])
 def start(m):
-    bot.send_message(m.chat.id, "Baga nagaan dhuftan! Lakkofsa 25 filadhu, tikeetiin keessan qubeewwan B-I-N-G-O jalatti tarreeffama.", 
+    bot.send_message(m.chat.id, "Baga nagaan dhuftan! Bingo Ethiopia Real-time eegaleera.\nTikeetiin keessan ofumaan qophaa'ee 40 sec booda lakkofsi waamama.", 
         reply_markup=ReplyKeyboardMarkup(resize_keyboard=True).add(KeyboardButton("🎮 Bingo Bani", web_app=WebAppInfo(url=RENDER_URL))))
 
 @app.route('/' + TOKEN, methods=['POST'])
