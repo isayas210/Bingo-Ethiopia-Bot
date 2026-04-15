@@ -12,7 +12,7 @@ ADMIN_ID = 6365691079
 bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask(__name__)
 
-# DATABASE (Users balance kuusuuf)
+# DATABASE
 DB_FILE = "users_db.json"
 
 def load_db():
@@ -63,7 +63,7 @@ def handle_requests(message):
         bot.forward_message(ADMIN_ID, message.chat.id, message.message_id)
         bot.send_message(ADMIN_ID, f"🔔 <b>DEPOSIT!</b> ID: <code>{uid}</code>", parse_mode="HTML")
         bot.send_message(message.chat.id, "✅ Screenshot keessan nu ga'eera.")
-    elif uid != str(ADMIN_ID) and any(x in message.text.lower() for x in ["etb", "birr", "baasu"]):
+    elif uid != str(ADMIN_ID) and message.text and any(x in message.text.lower() for x in ["etb", "birr", "baasu"]):
         bot.forward_message(ADMIN_ID, message.chat.id, message.message_id)
         bot.send_message(message.chat.id, "✅ Gaaffiin keessan Admin bira ga'eera.")
 
@@ -89,7 +89,17 @@ def run_flask():
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
 
 if __name__ == "__main__":
+    # 1. Start Web Server
     Thread(target=run_flask).start()
-    requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook?drop_pending_updates=True")
-    time.sleep(20) # Conflict eeggannoo
-    bot.infinity_polling(skip_pending_updates=True)
+    
+    # 2. FORCE CLEAR SESSIONS (To fix Conflict 409)
+    try:
+        requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook?drop_pending_updates=True")
+    except:
+        pass
+        
+    time.sleep(10) # Wait for Render to settle
+    
+    # 3. START POLLING (Without the faulty keyword)
+    print("Bot is starting...")
+    bot.infinity_polling(timeout=20, long_polling_timeout=10)
