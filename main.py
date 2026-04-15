@@ -1,13 +1,12 @@
 import os
 import time
 import random
-import telebot
-from flask import Flask, request, render_template_string, jsonify
+from flask import Flask, jsonify, render_template_string, request
 
-# Token kee asitti galchi
-TOKEN = os.environ.get('BOT_TOKEN')
-bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
+
+# Data user-oota (Ammaaf Memory qofa keessa)
+user_wallets = {} # {user_id: balance}
 
 class BingoEngine:
     def __init__(self):
@@ -17,10 +16,9 @@ class BingoEngine:
         self.start_time = time.time()
         self.called_balls = []
         self.called_nums = []
-        self.is_drawing = False
         self.winner_id = None
         self.all_tickets = {}
-        # B:1-20, I:21-40, N:41-60, G:61-80, O:81-100
+        # Tikeetii 100 generate gochuu
         for i in range(1, 101):
             ticket = []
             for col in range(5):
@@ -29,13 +27,6 @@ class BingoEngine:
             self.all_tickets[str(i)] = ticket
 
 engine = BingoEngine()
-
-def get_letter(n):
-    if n <= 20: return "B"
-    elif n <= 40: return "I"
-    elif n <= 60: return "N"
-    elif n <= 80: return "G"
-    else: return "O"
 
 @app.route('/')
 def index():
@@ -51,23 +42,16 @@ def sync():
         elapsed = 0
 
     if 40 < elapsed < 450 and not engine.winner_id:
-        engine.is_drawing = True
-        target_count = int((elapsed - 40) // 4) 
-        while len(engine.called_nums) < target_count:
+        target = int((elapsed - 40) // 4)
+        while len(engine.called_nums) < target:
             n = random.randint(1, 100)
             if n not in engine.called_nums:
                 engine.called_nums.append(n)
-                engine.called_balls.append(f"{get_letter(n)}-{n}")
-                
-                for tid, cols in engine.all_tickets.items():
-                    for r in range(5):
-                        if all(((cols[c][r] in engine.called_nums) or (c==2 and r==2)) for c in range(5)):
-                            engine.winner_id = tid
-                            return jsonify({"winner": tid, "balls": engine.called_balls})
-
+                engine.called_balls.append(f"{n}")
+    
     return jsonify({
-        "elapsed": elapsed, "balls": engine.called_balls, "nums": engine.called_nums,
-        "is_drawing": engine.is_drawing, "tickets": engine.all_tickets, "winner": engine.winner_id
+        "elapsed": elapsed, "balls": engine.called_balls,
+        "tickets": engine.all_tickets, "winner": engine.winner_id
     })
 
 HTML_CONTENT = """
@@ -78,118 +62,55 @@ HTML_CONTENT = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         body { font-family: sans-serif; background: #050a14; color: white; text-align: center; margin: 0; overflow-x: hidden; }
-        .stats { background: #001f3f; padding: 5px; border-bottom: 2px solid #ffcc00; position: sticky; top:0; z-index:100; height: 90px; }
-        .ball { font-size: 28px; font-weight: 900; background: white; color: #001f3f; width: 65px; height: 65px; line-height: 65px; border-radius: 50%; display: inline-block; border: 4px solid #ffcc00; }
-        
-        #picker { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; padding: 5px; }
-        .p-btn { background: #ffcc00; color: #000; border: 1px solid #fff; padding: 10px 0; border-radius: 4px; font-weight: bold; font-size: 11px; }
-        .p-btn.active { background: #28a745 !important; color: white; }
-
-        .grid-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; padding: 8px; }
-        .card { background: #0a101e; border: 1px solid #00ffcc; border-radius: 8px; padding: 3px; }
-        .card-id { font-size: 9px; color: #00ffcc; margin-bottom: 2px; }
-        
-        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-        th { color: #ffcc00; font-size: 10px; padding: 0; font-weight: 900; }
+        .stats { background: #001f3f; padding: 10px; border-bottom: 2px solid #ffcc00; position: sticky; top:0; z-index:100; }
+        .wallet-bar { background: #111; padding: 8px; display: flex; justify-content: space-around; align-items: center; border-bottom: 1px solid #333; }
+        .btn-pay { background: #28a745; border: none; color: white; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; }
+        .grid-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; padding: 10px; overflow-y: auto; height: calc(100vh - 160px); }
+        .card { background: #0a101e; border: 1px solid #00ffcc; border-radius: 8px; padding: 4px; }
+        table { width: 100%; border-collapse: collapse; }
         td { border: 1px solid #222; height: 22px; font-size: 11px; background: #1a2a44; font-weight: bold; }
-        td.hit { background: #28a745 !important; color: white; }
-        td.free { background: #ffcc00 !important; color: #000; font-size: 7px; font-weight: 900; }
-        
-        #status { font-size: 13px; font-weight: bold; margin-bottom: 3px; }
+        td.hit { background: #28a745 !important; }
+        td.free { background: #ffcc00 !important; color: #000; font-size: 8px; }
     </style>
 </head>
 <body>
     <div class="stats">
-        <div id="status">Syncing...</div>
-        <div class="ball" id="ballDisp">?</div>
+        <div id="status" style="font-size:12px;">Syncing...</div>
+        <div style="font-size: 28px; font-weight: bold;" id="ballDisp">?</div>
     </div>
-
-    <div id="selection-view">
-        <p id="msg" style="font-size: 14px; color:#ffcc00; margin: 10px;">TIKEETII KEE FILADHU:</p>
-        <div id="picker"></div>
+    <div class="wallet-bar">
+        <div>Wallet: <span style="color:#ffcc00;">0.00</span> ETB</div>
+        <button class="btn-pay" onclick="alert('Gara Bot Admin @BingoEthio_bot deebi'uun kaffaltii Screenshot ergaa.')">Deposit</button>
+        <button class="btn-pay" style="background:#dc3545" onclick="alert('Withdraw gochuuf Admin qunnamaa.')">Withdraw</button>
     </div>
-
-    <div id="game-view" style="display:none;">
-        <div id="my-cards" class="grid-container"></div>
-    </div>
+    <div class="grid-container" id="my-cards"></div>
 
 <script>
-    let mySelection = [];
-    let isPlaying = false;
-    
-    // Picker buttons create godhu
-    const p = document.getElementById('picker');
-    for(let i=1; i<=100; i++) {
-        let b = document.createElement('button');
-        b.className = 'p-btn'; b.innerText = i;
-        b.onclick = () => {
-            if(mySelection.includes(i)) {
-                mySelection = mySelection.filter(x => x != i);
-                b.classList.remove('active');
-            } else {
-                mySelection.push(i);
-                b.classList.add('active');
-            }
-        };
-        p.appendChild(b);
-    }
-
+    // Ammaaf tikeetii hunda agarsiisuu (Testing)
     async function sync() {
         try {
             let res = await fetch('/sync');
             let d = await res.json();
+            document.getElementById('status').innerText = d.winner ? "WINNER: #" + d.winner : "TAPHNI DEEMAA JIRA";
+            document.getElementById('ballDisp').innerText = d.balls.length > 0 ? d.balls[d.balls.length-1] : "?";
             
-            if(!d.is_drawing && !d.winner && d.elapsed < 5) {
-                mySelection = [];
-                isPlaying = false;
-                document.querySelectorAll('.p-btn').forEach(x => x.classList.remove('active'));
-            }
-
-            if(d.elapsed < 40 && mySelection.length > 0) isPlaying = true;
-
-            if(!d.is_drawing && !d.winner) {
-                document.getElementById('status').innerText = "FILANNOO: " + Math.max(0, 40-Math.floor(d.elapsed)) + "s";
-                document.getElementById('selection-view').style.display = "block";
-                document.getElementById('game-view').style.display = "none";
-                document.getElementById('msg').innerText = "Tikeetii Kee Filadhu:";
-            } else {
-                if(isPlaying) {
-                    document.getElementById('selection-view').style.display = "none";
-                    document.getElementById('game-view').style.display = "block";
-                    document.getElementById('ballDisp').innerText = d.balls[d.balls.length-1] || "?";
-                    document.getElementById('status').innerText = d.winner ? "🎊 #" + d.winner + " MO'ATE! 🎊" : "TAPHNI DEEMAA JIRA...";
-                    render(d);
-                } else {
-                    document.getElementById('selection-view').style.display = "block";
-                    document.getElementById('game-view').style.display = "none";
-                    document.getElementById('msg').innerText = "Taphni deemaa jira. Eegi...";
-                    document.getElementById('status').innerText = "EEGI...";
-                }
+            const cont = document.getElementById('my-cards');
+            if(cont.innerHTML === "") { 
+                Object.keys(d.tickets).slice(0, 10).forEach(tid => {
+                    let cols = d.tickets[tid];
+                    let h = `<div class="card"><div>#${tid}</div><table>`;
+                    for(let r=0; r<5; r++) {
+                        h += "<tr>";
+                        for(let c=0; c<5; c++) {
+                            let isF = (c==2 && r==2);
+                            h += `<td class="${isF?'free':''}">${isF?'FREE':cols[c][r]}</td>`;
+                        }
+                        h += "</tr>";
+                    }
+                    cont.innerHTML += h + "</table></div>";
+                });
             }
         } catch(e) {}
-    }
-
-    function render(d) {
-        const cont = document.getElementById('my-cards');
-        cont.innerHTML = "";
-        mySelection.forEach(tid => {
-            let cols = d.tickets[tid.toString()];
-            if(!cols) return;
-            let h = `<div class="card"><div class="card-id">#${tid}</div>
-                <table><thead><tr><th>B</th><th>I</th><th>N</th><th>G</th><th>O</th></tr></thead><tbody>`;
-            for(let r=0; r<5; r++) {
-                h += "<tr>";
-                for(let c=0; c<5; c++) {
-                    let v = cols[c][r];
-                    let isF = (c==2 && r==2);
-                    let hit = d.nums.includes(v) || isF;
-                    h += `<td class="${hit?'hit':''} ${isF?'free':''}">${isF?'FREE':v}</td>`;
-                }
-                h += "</tr>";
-            }
-            h += "</tbody></table></div>";
-            cont.innerHTML += h;
-        });
     }
     setInterval(sync, 3000);
 </script>
@@ -198,4 +119,5 @@ HTML_CONTENT = """
 """
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
