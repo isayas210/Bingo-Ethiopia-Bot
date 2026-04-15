@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; background: #1a1a1a; color: white; }
+        .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; padding: 20px; }
+        .cell { background: #ffcc00; color: black; padding: 15px; border-radius: 5px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>🎮 Bingo Ethiopia</h1>
+    <div class="grid" id="board"></div>
+    <script>
+        let tg = window.Telegram.WebApp;
+        tg.expand();
+        const board = document.getElementById('board');
+        for(let i=1; i<=25; i++) {
+            let div = document.createElement('div');
+            div.className = 'cell';
+            div.innerText = Math.floor(Math.random() * 75) + 1;
+            board.appendChild(div);
+        }
+    </script>
+</body>
+</html>
