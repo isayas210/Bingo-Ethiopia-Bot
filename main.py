@@ -71,14 +71,17 @@ def handle_requests(message):
 def add_money(message):
     if message.from_user.id == ADMIN_ID:
         try:
-            _, tid, amt = message.text.split("_")
+            # /add 12345 500 (Akka kanaan fayyadami)
+            parts = message.text.split()
+            tid = parts[1]
+            amt = parts[2]
             db = load_db()
             if tid in db:
                 db[tid]["balance"] += float(amt)
                 save_db(db)
                 bot.send_message(tid, f"🎉 Herregni kee <b>{amt} ETB</b> dabalameera!", parse_mode="HTML")
-                bot.send_message(ADMIN_ID, "Success!")
-        except: bot.send_message(ADMIN_ID, "Format: /add_ID_AMOUNT")
+                bot.send_message(ADMIN_ID, f"✅ User {tid} irratti {amt} dabalameera.")
+        except: bot.send_message(ADMIN_ID, "Format: /add USERID AMOUNT")
 
 # --- WEB UI ---
 @app.route('/')
@@ -89,17 +92,16 @@ def run_flask():
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
 
 if __name__ == "__main__":
-    # 1. Start Web Server
     Thread(target=run_flask).start()
     
-    # 2. FORCE CLEAR SESSIONS (To fix Conflict 409)
+    # Force clear sessions (Fix Conflict 409)
     try:
         requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook?drop_pending_updates=True")
     except:
         pass
         
-    time.sleep(10) # Wait for Render to settle
+    time.sleep(5)
     
-    # 3. START POLLING (Without the faulty keyword)
+    # START POLLING (Faulty keyword removed)
     print("Bot is starting...")
-    bot.infinity_polling(timeout=20, long_polling_timeout=10)
+    bot.infinity_polling(timeout=20)
