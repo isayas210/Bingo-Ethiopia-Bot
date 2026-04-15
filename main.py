@@ -4,6 +4,7 @@ import os
 from threading import Thread
 import time
 
+# BOT TOKEN
 BOT_TOKEN = "8692359063:AAHteqfebC808tTmj6qvIdjiVJIXoXRTf4c"
 bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask(__name__)
@@ -21,38 +22,38 @@ def home():
         <style>
             body { background-color: #0b0b0b; color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 0; overflow-x: hidden; }
             .nav { display: flex; justify-content: space-between; background: #0088cc; padding: 10px; font-weight: bold; position: sticky; top: 0; z-index: 100; }
-            .wallet { background: #000; padding: 2px 10px; border-radius: 15px; color: #4caf50; border: 1px solid #4caf50; font-size: 0.9rem; }
+            .wallet { background: #000; padding: 2px 10px; border-radius: 15px; color: #4caf50; border: 1px solid #4caf50; font-size: 0.85rem; }
             
-            /* Ball & History Optimization */
-            .ball-container { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 5px auto; }
-            .ball { font-size: 22px; color: #ffeb3b; border: 3px solid #0088cc; border-radius: 50%; width: 55px; height: 55px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #000; }
-            .called-list { display: flex; flex-wrap: wrap; gap: 3px; justify-content: center; padding: 5px; background: #1a1a1a; margin: 5px; border-radius: 8px; min-height: 25px; max-width: 90%; margin-left: auto; margin-right: auto; }
-            .called-num { font-size: 0.6rem; background: #333; padding: 1px 4px; border-radius: 3px; color: #888; }
+            /* Mini UI Elements */
+            .ball-container { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 5px auto; }
+            .ball { font-size: 20px; color: #ffeb3b; border: 3px solid #0088cc; border-radius: 50%; width: 50px; height: 50px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #000; }
+            .called-list { display: flex; flex-wrap: wrap; gap: 2px; justify-content: center; padding: 5px; background: #1a1a1a; margin: 5px auto; border-radius: 8px; min-height: 20px; max-width: 95%; }
+            .called-num { font-size: 0.6rem; background: #333; padding: 1px 3px; border-radius: 2px; color: #888; }
             .called-num.recent { background: #0088cc; color: white; font-weight: bold; }
 
-            /* Small Card Style */
-            .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; padding: 8px; }
-            .card { background: #fff; color: #000; border-radius: 6px; overflow: hidden; box-shadow: 0 3px 6px rgba(0,0,0,0.5); }
-            .card-header { display: grid; grid-template-columns: repeat(5, 1fr); background: #d32f2f; color: white; font-size: 0.8rem; font-weight: bold; padding: 1px 0; }
+            /* Tiny Card Grid */
+            .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 6px; padding: 5px; }
+            .card { background: #fff; color: #000; border-radius: 5px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
+            .card-header { display: grid; grid-template-columns: repeat(5, 1fr); background: #d32f2f; color: white; font-size: 0.75rem; font-weight: bold; padding: 1px 0; }
             .b-grid { display: grid; grid-template-columns: repeat(5, 1fr); background: #ccc; gap: 1px; }
-            .cell { background: #fff; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold; position: relative; }
-            .cell.marked::after { content: ""; position: absolute; width: 65%; height: 65%; background: rgba(76, 175, 80, 0.8); border-radius: 50%; }
-            .card-footer { background: #eee; font-size: 0.5rem; padding: 1px; color: #666; }
+            .cell { background: #fff; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: bold; position: relative; }
+            .cell.marked::after { content: ""; position: absolute; width: 60%; height: 60%; background: rgba(76, 175, 80, 0.8); border-radius: 50%; }
+            .card-footer { background: #eee; font-size: 0.45rem; padding: 1px; color: #666; }
 
             /* Selection & Spectator */
-            .spectator-box { background: #1a1a1a; margin: 10px; padding: 15px; border-radius: 12px; border: 1px dashed #444; }
+            .spectator-box { background: #1a1a1a; margin: 5px; padding: 10px; border-radius: 10px; border: 1px dashed #444; }
             .selection-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; padding: 5px; }
-            .t-num { aspect-ratio: 1; background: #222; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; border-radius: 3px; border: 1px solid #333; }
-            .t-num.selected { background: #4caf50 !important; color: white; border-color: white; }
+            .t-num { aspect-ratio: 1; background: #222; display: flex; align-items: center; justify-content: center; font-size: 0.6rem; border-radius: 2px; border: 1px solid #333; }
+            .t-num.selected { background: #4caf50 !important; color: white; }
             
             #win-overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:2000; flex-direction:column; align-items:center; justify-content:center; }
         </style>
     </head>
     <body>
         <div id="win-overlay">
-            <h2 style="color:#ffeb3b; margin-bottom: 5px;">BINGO! 🏆</h2>
-            <p id="win-msg" style="padding: 0 20px;"></p>
-            <div style="margin-top: 15px; color: #888; font-size: 0.8rem;">Gara fuula tikeetiitti ofumaan si deebisa...</div>
+            <h2 style="color:#ffeb3b; margin:0;">BINGO! 🏆</h2>
+            <p id="win-msg" style="font-size: 0.9rem; padding: 10px;"></p>
+            <div style="color: #4caf50; font-size: 0.75rem;">Ofumaan gara tikeetii filannootti deebi'a...</div>
         </div>
 
         <div class="nav">
@@ -61,23 +62,23 @@ def home():
         </div>
 
         <div id="select-view">
-            <div style="padding: 10px; background: #1a1a1a; margin: 10px; border-radius: 10px;">
-                <div style="font-size: 0.75rem; color: #888;">Tapha itti aanuuf tikeetii filadhu</div>
-                <div style="color: #ffeb3b; font-size: 1.1rem; font-weight: bold;">⏰ <span id="sync-timer">--</span>s</div>
+            <div style="padding: 8px; background: #1a1a1a; margin: 8px; border-radius: 8px;">
+                <div style="font-size: 0.7rem; color: #888;">Tapha itti aanuuf tikeetii filadhu (1-100)</div>
+                <div style="color: #ffeb3b; font-size: 1rem; font-weight: bold;">⏰ <span id="sync-timer">--</span>s</div>
             </div>
             <div class="selection-grid" id="grid-100"></div>
         </div>
 
         <div id="game-view" style="display:none;">
-            <div id="game-info-bar" style="padding: 5px; font-size: 0.75rem; font-weight: bold;"></div>
+            <div id="game-info-bar" style="padding: 5px; font-size: 0.7rem; font-weight: bold; color: #4caf50;"></div>
             
             <div class="ball-container">
                 <div class="ball">
-                    <span id="b-letter" style="font-size:0.6rem; color:#0088cc;">-</span>
+                    <span id="b-letter" style="font-size:0.5rem; color:#0088cc;">-</span>
                     <span id="b-num">--</span>
                 </div>
                 <div style="text-align: left;">
-                    <div style="font-size: 0.55rem; color: #888;">Lakkofsota waamaman:</div>
+                    <div style="font-size: 0.5rem; color: #888;">Seenaa lakkofsotaa:</div>
                     <div class="called-list" id="called-history"></div>
                 </div>
             </div>
@@ -87,15 +88,15 @@ def home():
             </div>
 
             <div id="spectator-section" style="display:none;" class="spectator-box">
-                <h4 style="color: #ffeb3b; margin: 0; font-size: 0.9rem;">👀 TAAJJABDII QOFA</h4>
-                <p style="font-size: 0.7rem; color: #888; margin: 5px 0;">Tapha itti aanuuf tikeetii filachuu dandeessa.</p>
+                <h4 style="color: #ffeb3b; margin: 0; font-size: 0.8rem;">👀 TAAJJABDII QOFA</h4>
+                <p style="font-size: 0.65rem; color: #888; margin: 3px 0;">Balance kee asirratti mul'ata. Tapha itti aanuuf filachuu dandeessa.</p>
                 <div class="selection-grid" id="grid-spectator"></div>
             </div>
         </div>
 
         <script>
-            let balance = localStorage.getItem('bingo_v21_bal') ? parseFloat(localStorage.getItem('bingo_v21_bal')) : 500.00;
-            function updateUI() { document.getElementById('bal-text').innerText = balance.toFixed(2); localStorage.setItem('bingo_v21_bal', balance); }
+            let balance = localStorage.getItem('bingo_v22_bal') ? parseFloat(localStorage.getItem('bingo_v22_bal')) : 500.00;
+            function updateUI() { document.getElementById('bal-text').innerText = balance.toFixed(2); localStorage.setItem('bingo_v22_bal', balance); }
             updateUI();
 
             let selectedIDs = [];
@@ -140,10 +141,10 @@ def home():
                 
                 if(selectedIDs.length === 0) {
                     document.getElementById('spectator-section').style.display = 'block';
-                    document.getElementById('game-info-bar').innerHTML = "🔴 TAPHA DEEMAA JIRU... (Eeggachaa jirta)";
+                    document.getElementById('game-info-bar').innerHTML = "🔴 TAAJJABDII (Eeggachaa jirta)";
                     createGrid('grid-spectator');
                 } else {
-                    document.getElementById('game-info-bar').innerHTML = "🟢 HIRMAACHAA JIRTA!";
+                    document.getElementById('game-info-bar').innerHTML = "🟢 TAPHA IRRA JIRTA!";
                 }
 
                 for(let id=1; id<=100; id++) {
@@ -188,7 +189,7 @@ def home():
                     document.getElementById('b-letter').innerText = "BINGO"[Math.floor((p-1)/15)];
                     document.getElementById('b-num').innerText = p;
                     const h = document.getElementById('called-history');
-                    h.innerHTML = calledNums.slice(-12).map(n => `<div class="called-num ${n===p?'recent':''}">${n}</div>`).join("");
+                    h.innerHTML = calledNums.slice(-15).map(n => `<div class="called-num ${n===p?'recent':''}">${n}</div>`).join("");
 
                     allActiveCards.forEach(card => {
                         let idx = card.nums.indexOf(p);
@@ -212,11 +213,11 @@ def home():
             function showWin(card) {
                 const overlay = document.getElementById('win-overlay');
                 overlay.style.display = 'flex';
-                const msg = card.isMine ? `BAAY'EE NAMATTI TOLA! Kaartellaan kee #${card.id} mo'ateera!` : `Kaartellaan #${card.id} mo'ateera! (Yeroo itti aanu yaali)`;
+                const msg = card.isMine ? `BAAY'EE NAMATTI TOLA! Kaartellaan kee #${card.id} mo'ateera!` : `Kaartellaan #${card.id} mo'ateera!`;
                 document.getElementById('win-msg').innerText = msg;
                 if(card.isMine) { balance += 700; updateUI(); }
 
-                // AUTO-RESTART: Sekondii 5 booda ofumaan gara jalqabaatti deebisa
+                // AUTO-RESTART: Sekondii 5 booda ofumaan deebisa
                 setTimeout(() => {
                     location.reload();
                 }, 5000);
@@ -233,7 +234,10 @@ if __name__ == "__main__":
     t = Thread(target=run)
     t.daemon = True
     t.start()
+    
+    # Conflict prevention delay
     time.sleep(15)
+    
     while True:
         try:
             bot.remove_webhook()
