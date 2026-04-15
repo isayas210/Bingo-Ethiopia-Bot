@@ -16,7 +16,7 @@ def home():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-        <title>Bingo Ethiopia - 100 Cards Logic</title>
+        <title>Bingo Ethiopia - Persistent Balance</title>
         <script src="https://telegram.org/js/telegram-web-app.js"></script>
         <style>
             body { background-color: #0b0b0b; color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 5px; }
@@ -60,16 +60,31 @@ def home():
         </div>
 
         <script>
-            let balance = 500.00, myTickets = [], allCards = [], isOver = false;
+            // 💰 BALANCE PERSISTENCE LOGIC
+            let balance = localStorage.getItem('bingo_bal') ? parseFloat(localStorage.getItem('bingo_bal')) : 500.00;
+            document.getElementById('bal').innerText = balance.toFixed(2);
+
+            function updateBal(amt) {
+                balance += amt;
+                localStorage.setItem('bingo_bal', balance);
+                document.getElementById('bal').innerText = balance.toFixed(2);
+            }
+
+            let myTickets = [], allCards = [], isOver = false;
 
             const grid = document.getElementById('s-grid');
             for(let i=1; i<=100; i++) {
                 const d = document.createElement('div'); d.className = 't-num'; d.innerText = i;
                 d.onclick = () => {
                     if(myTickets.length < 8 || d.classList.contains('selected')) {
-                        if(!d.classList.contains('selected') && balance >= 10) { d.classList.add('selected'); myTickets.push(i); balance -= 10; }
-                        else if(d.classList.contains('selected')) { d.classList.remove('selected'); myTickets = myTickets.filter(x => x !== i); balance += 10; }
-                        document.getElementById('bal').innerText = balance.toFixed(2);
+                        if(!d.classList.contains('selected') && balance >= 10) { 
+                            d.classList.add('selected'); myTickets.push(i); 
+                            updateBal(-10); // 10 ETB hir'isi
+                        }
+                        else if(d.classList.contains('selected')) { 
+                            d.classList.remove('selected'); myTickets = myTickets.filter(x => x !== i); 
+                            updateBal(10); // Yoo dhiise deebisi
+                        }
                     }
                 };
                 grid.appendChild(d);
@@ -81,14 +96,11 @@ def home():
             function start() {
                 document.getElementById('select-view').style.display = 'none';
                 document.getElementById('game-view').style.display = 'block';
-                
-                // Tikeetii 100nuu uumuuf (Hunduu loojika keessa jiru)
                 for(let id=1; id<=100; id++) {
                     let card = { id: id, isMine: myTickets.includes(id), nums: [], marked: new Array(25).fill(false) };
-                    card.marked[12] = true; // FREE Space
+                    card.marked[12] = true;
                     while(card.nums.length < 25) { let r = Math.floor(Math.random()*75)+1; if(!card.nums.includes(r)) card.nums.push(r); }
                     allCards.push(card);
-
                     if(card.isMine) {
                         const w = document.createElement('div'); w.className = 'card';
                         w.innerHTML = `<div class="bingo-header"><span>B</span><span>I</span><span>N</span><span>G</span><span>O</span></div><div style="font-size:0.6rem; color:#0088cc;">CARD #${id}</div>`;
@@ -112,22 +124,18 @@ def home():
                     let num; do { num = Math.floor(Math.random()*75)+1; } while(called.includes(num));
                     called.push(num);
                     document.getElementById('call').innerText = L[Math.floor(Math.random()*5)] + " " + num;
-                    
-                    // Mark matching numbers in all 100 cards
                     allCards.forEach(card => {
                         card.nums.forEach((n, idx) => { if(n == num) card.marked[idx] = true; });
                         if(checkBingo(card.marked)) announceWinner(card);
                     });
-
-                    // Update UI for player's cards
                     document.querySelectorAll('.cell').forEach(c => { if(c.dataset.val == num) c.classList.add('marked'); });
                 }, 4000);
             }
 
             function checkBingo(m) {
                 for(let i=0; i<5; i++) {
-                    if(m[i*5] && m[i*5+1] && m[i*5+2] && m[i*5+3] && m[i*5+4]) return true; // Row
-                    if(m[i] && m[i+5] && m[i+10] && m[i+15] && m[i+20]) return true; // Col
+                    if(m[i*5] && m[i*5+1] && m[i*5+2] && m[i*5+3] && m[i*5+4]) return true;
+                    if(m[i] && m[i+5] && m[i+10] && m[i+15] && m[i+20]) return true;
                 }
                 return false;
             }
@@ -136,13 +144,10 @@ def home():
                 if(isOver) return; isOver = true;
                 document.getElementById('overlay').style.display = 'flex';
                 document.getElementById('win-id').innerText = card.id;
-                
                 if(card.isMine) {
-                    balance += 700;
-                    document.getElementById('bal').innerText = balance.toFixed(2);
+                    updateBal(700); // 💰 Injifannoo 700 edayi
                 } else {
                     document.getElementById('win-title').innerText = "HOUSE WINS! 🏠";
-                    document.getElementById('win-title').style.color = "#ffeb3b";
                     document.getElementById('win-cash').innerText = "Game Over";
                     document.getElementById('win-cash').style.color = "#f44336";
                 }
