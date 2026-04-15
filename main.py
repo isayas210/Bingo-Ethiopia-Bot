@@ -10,187 +10,157 @@ bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
 RENDER_URL = f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME')}"
 
-# --- SERVER-SIDE GAME STATE ---
-# Taphni kun server irratti namni hundaaf wal-qixa deema
-game_state = {
+# --- SYSTEM LOGIC ---
+# Tikeetii 100 qopheessina (100 keessaa namni kute ni galmaa'a, kan hafe 'Mana')
+game_data = {
     "start_time": time.time(),
-    "called_numbers": [],
-    "is_drawing": False,
-    "last_ball": None
+    "called_balls": [],
+    "tickets": {}, # {ticket_id: [numbers]}
+    "winners": [],
+    "is_active": False
 }
 
-def update_game_logic():
-    global game_state
-    now = time.time()
-    elapsed = now - game_state["start_time"]
-    
-    # Sekoondii 40f filannoo, sana booda lakkofsa 60 waamuuf (3s gidduutti)
-    if elapsed < 40:
-        game_state["is_drawing"] = False
-        game_state["called_numbers"] = []
-    else:
-        game_state["is_drawing"] = True
-        # Lakkofsa meeqa waamamu akka qabu (elapsed - 40) / 3sec
-        needed_balls = int((elapsed - 40) // 3.5)
-        if len(game_state["called_numbers"]) < needed_balls and len(game_state["called_numbers"]) < 75:
-            while len(game_state["called_numbers"]) < needed_balls:
-                n = random.randint(1, 100)
-                if n not in game_state["called_numbers"]:
-                    game_state["called_numbers"].append(n)
-            game_state["last_ball"] = game_state["called_numbers"][-1]
-            
-    # Taphni tokko yoo xumurame (fakkeenyaaf sekoondii 300 booda) deebisii eegali
-    if elapsed > 300:
-        game_state = {"start_time": time.time(), "called_numbers": [], "is_drawing": False, "last_ball": None}
+def setup_new_game():
+    global game_data
+    game_data["start_time"] = time.time()
+    game_data["called_balls"] = []
+    game_data["winners"] = []
+    game_data["is_active"] = False
+    # Tikeetii 100 guutuu lakkofsa random uumnaan
+    for i in range(1, 101):
+        nums = random.sample(range(1, 101), 25)
+        game_data["tickets"][i] = nums
 
-@app.route('/game_status')
-def get_status():
-    update_game_logic()
+setup_new_game()
+
+@app.route('/game_sync')
+def game_sync():
     now = time.time()
+    elapsed = now - game_data["start_time"]
+    
+    # 40s Selection, booda drawing eegala
+    if elapsed > 40:
+        game_data["is_active"] = True
+        needed_balls = int((elapsed - 40) // 3) # 3 sec tokko
+        if len(game_data["called_balls"]) < needed_balls and len(game_data["called_balls"]) < 100:
+            while len(game_data["called_balls"]) < needed_balls:
+                n = random.randint(1, 100)
+                if n not in game_data["called_balls"]:
+                    game_data["called_balls"].append(n)
+        
     return jsonify({
-        "elapsed": now - game_state["start_time"],
-        "called": game_state["called_numbers"],
-        "is_drawing": game_state["is_drawing"],
-        "last_ball": game_state["last_ball"]
+        "elapsed": elapsed,
+        "called": game_data["called_balls"],
+        "is_active": game_data["is_active"],
+        "tickets": game_data["tickets"] # Tikeetii 100nuu ni erga
     })
 
-# --- HTML INTERFACE ---
 HTML_CONTENT = """
 <!DOCTYPE html>
 <html lang="or">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bingo Live Ethiopia</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <title>Bingo Ethiopia - House System</title>
     <style>
         body { font-family: sans-serif; background: #050a14; color: white; text-align: center; margin: 0; padding: 10px; }
-        .container { background: #001f3f; border: 2px solid #00d4ff; border-radius: 20px; padding: 15px; max-width: 500px; margin: auto; }
-        .grid-100 { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; max-height: 250px; overflow-y: auto; background: rgba(0,0,0,0.5); padding: 5px; border-radius: 10px; }
-        .n-btn { background: #1a2a44; border: 1px solid #007bff; color: white; padding: 10px 0; border-radius: 5px; font-size: 11px; }
-        .n-btn.active { background: #ffcc00; color: #000; font-weight: bold; }
-        .bingo-card { width: 100%; border-collapse: separate; border-spacing: 2px; margin-top: 15px; background: #000; border: 2px solid #ffcc00; }
-        .bingo-card td { height: 40px; width: 20%; background: #1a2a44; border-radius: 4px; font-weight: bold; }
-        .bingo-card td.marked { background: #28a745 !important; box-shadow: inset 0 0 8px #fff; }
-        .ball { font-size: 50px; font-weight: bold; background: white; color: #001f3f; width: 90px; height: 90px; line-height: 90px; border-radius: 50%; border: 5px solid #ffcc00; display: inline-block; margin: 10px 0; }
-        .timer { font-size: 20px; color: #ff4444; font-weight: bold; }
+        .card-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 20px; }
+        .bingo-table { font-size: 10px; border-collapse: collapse; width: 100%; background: #000; border: 1px solid #ffcc00; }
+        .bingo-table td { border: 1px solid #333; height: 25px; text-align: center; }
+        .marked { background: #28a745 !important; color: white; }
+        .house-label { font-size: 9px; color: #ff4444; }
+        .user-label { font-size: 9px; color: #00ffcc; font-weight: bold; }
+        .ball { font-size: 40px; background: white; color: #000; width: 80px; height: 80px; border-radius: 50%; line-height: 80px; display: inline-block; border: 4px solid #ffcc00; }
     </style>
 </head>
 <body>
-<div class="container">
-    <h2 style="color:#ffcc00;">BINGO LIVE 24/7</h2>
+    <h2 style="color:#ffcc00;">BINGO ETHIOPIA LIVE</h2>
+    <div id="status">Eeggachaa...</div>
+    <div class="ball" id="currentBall">?</div>
     
-    <div id="selection-view">
-        <div class="timer" id="timer-display">Eeggachaa...</div>
-        <p style="font-size:12px;">Tikeetiwwan kee kuttachuuf lakkofsa cuqaasi (1-100):</p>
-        <div class="grid-100" id="picker"></div>
-        <p>Tikeetii: <span id="count" style="color:#ffcc00;">0</span></p>
+    <div id="selection-zone">
+        <h3>Tikeetii Kee Kuti (1-100)</h3>
+        <div id="picker-grid" style="display:grid; grid-template-columns: repeat(10, 1fr); gap:2px;"></div>
     </div>
 
-    <div id="game-view" style="display:none;">
-        <div class="ball" id="ballNum">?</div>
-        <div id="ticket-container"></div>
+    <div id="game-zone" style="display:none;">
+        <div class="card-container" id="all-cards"></div>
     </div>
-</div>
 
 <script>
-    let selectedTickets = [];
-    let myTicketsData = {};
-    let isGameStarted = false;
+    let myTickets = [];
+    let allTicketsData = {};
+    let isWinnerFound = false;
 
-    // Build Picker
-    const picker = document.getElementById('picker');
+    // 1. Grid Picker
+    const picker = document.getElementById('picker-grid');
     for(let i=1; i<=100; i++) {
         let b = document.createElement('button');
-        b.className = 'n-btn'; b.innerText = i;
+        b.innerText = i;
+        b.style.padding = "5px";
         b.onclick = () => {
-            if(selectedTickets.includes(i)) {
-                selectedTickets = selectedTickets.filter(x => x !== i); b.classList.remove('active');
-            } else {
-                selectedTickets.push(i); b.classList.add('active');
-                generateTicketData(i);
+            if(!myTickets.includes(i)) {
+                myTickets.push(i);
+                b.style.background = "#ffcc00";
             }
-            document.getElementById('count').innerText = selectedTickets.length;
         };
         picker.appendChild(b);
     }
 
-    function generateTicketData(id) {
-        let nums = [];
-        while(nums.length < 25) {
-            let r = Math.floor(Math.random()*100)+1;
-            if(!nums.includes(r)) nums.push(r);
-        }
-        myTicketsData[id] = nums;
-    }
-
     async function sync() {
-        let res = await fetch('/game_status');
+        if(isWinnerFound) return;
+        let res = await fetch('/game_sync');
         let data = await res.json();
-        
-        if (!data.is_drawing) {
-            let remain = Math.max(0, 40 - Math.floor(data.elapsed));
-            document.getElementById('timer-display').innerText = "Tikeetii Kuti: " + remain + "s";
-            document.getElementById('selection-view').style.display = 'block';
-            document.getElementById('game-view').style.display = 'none';
-            isGameStarted = false;
+        allTicketsData = data.tickets;
+
+        if(data.is_active) {
+            document.getElementById('selection-zone').style.display = 'none';
+            document.getElementById('game-zone').style.display = 'block';
+            document.getElementById('currentBall').innerText = data.called[data.called.length-1] || "?";
+            renderCards(data.called);
         } else {
-            if(!isGameStarted) {
-                document.getElementById('selection-view').style.display = 'none';
-                document.getElementById('game-view').style.display = 'block';
-                renderMyTickets();
-                isGameStarted = true;
-            }
-            document.getElementById('ballNum').innerText = data.last_ball || "?";
-            // Mark all called numbers
-            data.called.forEach(n => {
-                selectedTickets.forEach(tId => {
-                    let cell = document.getElementById(`t${tId}-n${n}`);
-                    if(cell) cell.classList.add('marked');
-                });
-            });
+            document.getElementById('status').innerText = "Tikeetii Kuti: " + Math.max(0, 40 - Math.floor(data.elapsed)) + "s";
         }
     }
 
-    function renderMyTickets() {
-        const cont = document.getElementById('ticket-container');
-        cont.innerHTML = "";
-        selectedTickets.forEach(tId => {
-            let html = `<p>Tikeetii #${tId}</p><table class="bingo-card"><tbody>`;
-            let nums = myTicketsData[tId];
+    function renderCards(called) {
+        const container = document.getElementById('all-cards');
+        container.innerHTML = "";
+        
+        for(let i=1; i<=100; i++) {
+            let nums = allTicketsData[i];
+            let isMine = myTickets.includes(i);
+            let table = `<div class="card-box">
+                <span class="${isMine ? 'user-label' : 'house-label'}">${isMine ? 'TIKEETII KEE' : 'TIKEETII MANAA'} #${i}</span>
+                <table class="bingo-table">`;
+            
+            let markedCountInTicket = 0;
             for(let r=0; r<5; r++) {
-                html += "<tr>";
+                table += "<tr>";
+                let rowMarked = 0;
                 for(let c=0; c<5; c++) {
                     let v = nums[r*5+c];
-                    html += `<td id="t${tId}-n${v}">${v}</td>`;
+                    let isMarked = called.includes(v);
+                    if(isMarked) rowMarked++;
+                    table += `<td class="${isMarked ? 'marked' : ''}">${v}</td>`;
                 }
-                html += "</tr>";
+                table += "</tr>";
+                if(rowMarked === 5) announceBingo(i, isMine);
             }
-            html += "</tbody></table>";
-            let div = document.createElement('div'); div.innerHTML = html;
-            cont.appendChild(div);
-        });
+            table += "</table></div>";
+            container.innerHTML += table;
+        }
+    }
+
+    function announceBingo(id, isMine) {
+        if(isWinnerFound) return;
+        isWinnerFound = true;
+        let winner = isMine ? "ATTI INJIFATTEETTA! (x100)" : "MANNI MO'ATE! (Taphattoonni hundi kishiraniiru)";
+        alert("BINGO! Tikeetii #" + id + "\\n" + winner);
+        setTimeout(() => location.reload(), 5000);
     }
 
     setInterval(sync, 2000);
 </script>
 </body>
 </html>
-"""
-
-@app.route('/')
-def index():
-    return render_template_string(HTML_CONTENT)
-
-@bot.message_handler(commands=['start'])
-def start(m):
-    bot.send_message(m.chat.id, "Bingo Ethiopia Live! Taphni deemaa jira. Sekoondii 40 keessatti tikeetii kee filadhu.", 
-        reply_markup=ReplyKeyboardMarkup(resize_keyboard=True).add(KeyboardButton("🎮 Bingo Bani", web_app=WebAppInfo(url=RENDER_URL))))
-
-@app.route('/' + TOKEN, methods=['POST'])
-def webhook():
-    bot.process_new_updates([telebot.types.Update.de_json(request.get_data().decode('utf-8'))])
-    return "!", 200
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
