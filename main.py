@@ -74,24 +74,24 @@ HTML_CONTENT = """
     <style>
         body { font-family: sans-serif; background: #050a14; color: white; text-align: center; margin: 0; overflow-x: hidden; }
         .stats { background: #001f3f; padding: 5px; border-bottom: 2px solid #ffcc00; position: sticky; top:0; z-index:100; height: 85px; }
-        .ball { font-size: 30px; font-weight: 900; background: white; color: #001f3f; width: 60px; height: 60px; line-height: 60px; border-radius: 50%; display: inline-block; border: 3px solid #ffcc00; }
+        .ball { font-size: 28px; font-weight: 900; background: white; color: #001f3f; width: 60px; height: 60px; line-height: 60px; border-radius: 50%; display: inline-block; border: 3px solid #ffcc00; }
         
         #picker { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; padding: 5px; }
         .p-btn { background: #ffcc00; color: #000; border: 1px solid #fff; padding: 10px 0; border-radius: 4px; font-weight: bold; font-size: 11px; }
         .p-btn.active { background: #28a745 !important; color: white; }
 
-        /* GRID FOR 8 CARDS (2 COLUMNS) */
+        /* MULTI-CARD GRID (2 COLUMNS) */
         .grid-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; padding: 5px; }
         .card { background: #0a101e; border: 1px solid #00ffcc; border-radius: 6px; padding: 2px; }
-        .card-title { font-size: 8px; color: #00ffcc; margin-bottom: 1px; }
+        .card-id { font-size: 8px; color: #00ffcc; margin-bottom: 1px; }
         
         table { width: 100%; border-collapse: collapse; table-layout: fixed; }
         th { color: #ffcc00; font-size: 9px; padding: 0; }
-        td { border: 1px solid #222; height: 19px; font-size: 10px; background: #1a2a44; font-weight: bold; }
-        td.hit { background: #28a745 !important; color: white; }
+        td { border: 1px solid #222; height: 18px; font-size: 10px; background: #1a2a44; font-weight: bold; }
+        td.hit { background: #28a745 !important; }
         td.free { background: #ffcc00 !important; color: #000; font-size: 6px; }
         
-        #status { font-size: 12px; font-weight: bold; margin-bottom: 2px; }
+        #status { font-size: 12px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -101,7 +101,7 @@ HTML_CONTENT = """
     </div>
 
     <div id="selection-view">
-        <p id="prompt-msg" style="font-size: 12px; margin: 8px; color: #00ffcc;">Tikeetii Kee Filadhu:</p>
+        <p id="msg" style="font-size: 12px; margin: 5px;">Tikeetii Kee Filadhu:</p>
         <div id="picker"></div>
     </div>
 
@@ -111,12 +111,12 @@ HTML_CONTENT = """
 
 <script>
     let mySelection = [];
-    let hasJoinedCurrentGame = false;
+    let canPlayThisRound = false; 
     const picker = document.getElementById('picker');
     
     for(let i=1; i<=100; i++) {
         let b = document.createElement('button');
-        b.className = 'p-btn'; b.id = 'btn-'+i; b.innerText = i;
+        b.className = 'p-btn'; b.innerText = i;
         b.onclick = () => {
             if(mySelection.includes(i)) {
                 mySelection = mySelection.filter(x => x != i);
@@ -134,26 +134,26 @@ HTML_CONTENT = """
             let r = await fetch('/sync');
             let d = await r.json();
             
-            // 1. FRESH RESET: Taphni haaraa yoo eegalu hunda haqi
+            // Taphni haaraa yoo eegalu Reset godhi
             if(!d.is_drawing && !d.winner && d.elapsed < 5) {
                 mySelection = [];
-                hasJoinedCurrentGame = false;
+                canPlayThisRound = false;
                 document.querySelectorAll('.p-btn').forEach(x => x.classList.remove('active'));
             }
 
-            // 2. LOGIC: Namni yeroo eegaluu filate qofatu gara taphaa darba
-            if (d.elapsed < 40) {
-                hasJoinedCurrentGame = (mySelection.length > 0);
+            // Namni yeroo filannoo tikeetii kuteera ta'e taphachuu danda'a
+            if (d.elapsed < 40 && mySelection.length > 0) {
+                canPlayThisRound = true;
             }
 
             if(!d.is_drawing && !d.winner) {
                 document.getElementById('status').innerText = "FILANNOO: " + Math.max(0, 40-Math.floor(d.elapsed)) + "s";
-                document.getElementById('prompt-msg').innerText = "Tikeetii Kee Filadhu:";
                 document.getElementById('selection-view').style.display = "block";
                 document.getElementById('game-view').style.display = "none";
+                document.getElementById('msg').innerText = "Tikeetii Kee Filadhu:";
             } else {
-                // Yoo namni sun tikeetii kuteera ta'e qofa tapha agarsiisi
-                if (hasJoinedCurrentGame && mySelection.length > 0) {
+                // AUTO-SWITCH: Yoo kuteera ta'e qofa tapha agarsiisi
+                if (canPlayThisRound) {
                     document.getElementById('selection-view').style.display = "none";
                     document.getElementById('game-view').style.display = "block";
                     document.getElementById('ballDisp').innerText = d.balls[d.balls.length-1] || "?";
@@ -161,11 +161,11 @@ HTML_CONTENT = """
                     else document.getElementById('status').innerText = "TAPHNI DEEMAA JIRA...";
                     render(d);
                 } else {
-                    // Namni haaraa dhufe hamma taphni dhumutti "Eegi" ittiin jedhi
-                    document.getElementById('status').innerText = "TAPHNI DEEMAA JIRA...";
-                    document.getElementById('prompt-msg').innerText = "Taphni kun dhumee kan biraa hamma eegalutti eegi...";
+                    // Namni haaraa dhufe akka eegu godhi
                     document.getElementById('selection-view').style.display = "block";
                     document.getElementById('game-view').style.display = "none";
+                    document.getElementById('msg').innerText = "Taphni deemaa jira. Kan biraa hamma eegalutti eegi...";
+                    document.getElementById('status').innerText = "EEGI...";
                 }
             }
         } catch(e) {}
@@ -176,8 +176,7 @@ HTML_CONTENT = """
         cont.innerHTML = "";
         mySelection.forEach(tid => {
             let cols = d.tickets[tid.toString()];
-            let h = `<div class="card">
-                <div class="card-title">TIKEETII #${tid}</div>
+            let h = `<div class="card"><div class="card-id">#${tid}</div>
                 <table><thead><tr><th>B</th><th>I</th><th>N</th><th>G</th><th>O</th></tr></thead><tbody>`;
             for(let r=0; r<5; r++) {
                 h += "<tr>";
