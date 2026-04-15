@@ -40,8 +40,6 @@ def home():
             .cell.marked::after { content: ""; position: absolute; width: 60%; height: 60%; background: rgba(76, 175, 80, 0.8); border-radius: 50%; }
             .card-footer { background: #eee; font-size: 0.45rem; padding: 1px; color: #666; }
 
-            /* Selection & Spectator */
-            .spectator-box { background: #1a1a1a; margin: 5px; padding: 10px; border-radius: 10px; border: 1px dashed #444; }
             .selection-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; padding: 5px; }
             .t-num { aspect-ratio: 1; background: #222; display: flex; align-items: center; justify-content: center; font-size: 0.6rem; border-radius: 2px; border: 1px solid #333; }
             .t-num.selected { background: #4caf50 !important; color: white; }
@@ -53,7 +51,7 @@ def home():
         <div id="win-overlay">
             <h2 style="color:#ffeb3b; margin:0;">BINGO! 🏆</h2>
             <p id="win-msg" style="font-size: 0.9rem; padding: 10px;"></p>
-            <div style="color: #4caf50; font-size: 0.75rem;">Ofumaan gara tikeetii filannootti deebi'a...</div>
+            <div style="color: #4caf50; font-size: 0.75rem;">Sekondii 2 booda ofumaan deebi'a...</div>
         </div>
 
         <div class="nav">
@@ -63,40 +61,32 @@ def home():
 
         <div id="select-view">
             <div style="padding: 8px; background: #1a1a1a; margin: 8px; border-radius: 8px;">
-                <div style="font-size: 0.7rem; color: #888;">Tapha itti aanuuf tikeetii filadhu (1-100)</div>
-                <div style="color: #ffeb3b; font-size: 1rem; font-weight: bold;">⏰ <span id="sync-timer">--</span>s</div>
+                <div style="font-size: 0.7rem; color: #888;">Tapha itti aanuuf tikeetii filadhu (Sekondii 30)</div>
+                <div style="color: #ffeb3b; font-size: 1.2rem; font-weight: bold;">⏰ <span id="sync-timer">--</span>s</div>
             </div>
             <div class="selection-grid" id="grid-100"></div>
         </div>
 
         <div id="game-view" style="display:none;">
             <div id="game-info-bar" style="padding: 5px; font-size: 0.7rem; font-weight: bold; color: #4caf50;"></div>
-            
             <div class="ball-container">
                 <div class="ball">
                     <span id="b-letter" style="font-size:0.5rem; color:#0088cc;">-</span>
                     <span id="b-num">--</span>
                 </div>
                 <div style="text-align: left;">
-                    <div style="font-size: 0.5rem; color: #888;">Seenaa lakkofsotaa:</div>
+                    <div style="font-size: 0.5rem; color: #888;">Lakkofsota waamaman:</div>
                     <div class="called-list" id="called-history"></div>
                 </div>
             </div>
-
             <div id="my-active-section">
                 <div class="cards-grid" id="active-cards-ui"></div>
-            </div>
-
-            <div id="spectator-section" style="display:none;" class="spectator-box">
-                <h4 style="color: #ffeb3b; margin: 0; font-size: 0.8rem;">👀 TAAJJABDII QOFA</h4>
-                <p style="font-size: 0.65rem; color: #888; margin: 3px 0;">Balance kee asirratti mul'ata. Tapha itti aanuuf filachuu dandeessa.</p>
-                <div class="selection-grid" id="grid-spectator"></div>
             </div>
         </div>
 
         <script>
-            let balance = localStorage.getItem('bingo_v22_bal') ? parseFloat(localStorage.getItem('bingo_v22_bal')) : 500.00;
-            function updateUI() { document.getElementById('bal-text').innerText = balance.toFixed(2); localStorage.setItem('bingo_v22_bal', balance); }
+            let balance = localStorage.getItem('bingo_v23_bal') ? parseFloat(localStorage.getItem('bingo_v23_bal')) : 500.00;
+            function updateUI() { document.getElementById('bal-text').innerText = balance.toFixed(2); localStorage.setItem('bingo_v23_bal', balance); }
             updateUI();
 
             let selectedIDs = [];
@@ -105,7 +95,6 @@ def home():
                 container.innerHTML = "";
                 for(let i=1; i<=100; i++) {
                     const d = document.createElement('div'); d.className = 't-num'; d.innerText = i;
-                    if(selectedIDs.includes(i)) d.classList.add('selected');
                     d.onclick = () => {
                         if(selectedIDs.includes(i)) {
                             selectedIDs = selectedIDs.filter(x => x !== i); d.classList.remove('selected'); balance += 10;
@@ -113,42 +102,32 @@ def home():
                             selectedIDs.push(i); d.classList.add('selected'); balance -= 10;
                         }
                         updateUI();
-                        document.querySelectorAll('.t-num').forEach(el => {
-                            if(parseInt(el.innerText) === i) {
-                                selectedIDs.includes(i) ? el.classList.add('selected') : el.classList.remove('selected');
-                            }
-                        });
                     };
                     container.appendChild(d);
                 }
             }
             createGrid('grid-100');
 
+            // TIMER 30 SECONDS
             setInterval(() => {
                 let now = Math.floor(Date.now() / 1000);
-                let remaining = 60 - (now % 60);
+                let remaining = 30 - (now % 30);
                 document.getElementById('sync-timer').innerText = remaining;
-                if(remaining === 59) startRound();
+                if(remaining === 29 && !gameStarted) startRound();
             }, 1000);
 
             let allActiveCards = [], gameStarted = false, calledNums = [];
 
             function startRound() {
-                if(gameStarted) return;
                 gameStarted = true;
                 document.getElementById('select-view').style.display = 'none';
                 document.getElementById('game-view').style.display = 'block';
                 
-                if(selectedIDs.length === 0) {
-                    document.getElementById('spectator-section').style.display = 'block';
-                    document.getElementById('game-info-bar').innerHTML = "🔴 TAAJJABDII (Eeggachaa jirta)";
-                    createGrid('grid-spectator');
-                } else {
-                    document.getElementById('game-info-bar').innerHTML = "🟢 TAPHA IRRA JIRTA!";
-                }
+                let mySelection = [...selectedIDs];
+                selectedIDs = []; // Reset for next round
 
                 for(let id=1; id<=100; id++) {
-                    let card = { id: id, nums: genBingo(), marks: new Array(25).fill(false), isMine: selectedIDs.includes(id) };
+                    let card = { id: id, nums: genBingo(), marks: new Array(25).fill(false), isMine: mySelection.includes(id) };
                     card.marks[12] = true;
                     allActiveCards.push(card);
                     if(card.isMine) renderCard(card);
@@ -185,11 +164,9 @@ def home():
                     if(pool.length===0) { clearInterval(loop); return; }
                     let p = pool.splice(Math.floor(Math.random()*pool.length), 1)[0];
                     calledNums.push(p);
-                    
                     document.getElementById('b-letter').innerText = "BINGO"[Math.floor((p-1)/15)];
                     document.getElementById('b-num').innerText = p;
-                    const h = document.getElementById('called-history');
-                    h.innerHTML = calledNums.slice(-15).map(n => `<div class="called-num ${n===p?'recent':''}">${n}</div>`).join("");
+                    document.getElementById('called-history').innerHTML = calledNums.slice(-15).map(n => `<div class="called-num ${n===p?'recent':''}">${n}</div>`).join("");
 
                     allActiveCards.forEach(card => {
                         let idx = card.nums.indexOf(p);
@@ -202,7 +179,7 @@ def home():
                         }
                         if(check(card.marks)) { clearInterval(loop); showWin(card); }
                     });
-                }, 3000);
+                }, 2500);
             }
 
             function check(m) {
@@ -213,14 +190,13 @@ def home():
             function showWin(card) {
                 const overlay = document.getElementById('win-overlay');
                 overlay.style.display = 'flex';
-                const msg = card.isMine ? `BAAY'EE NAMATTI TOLA! Kaartellaan kee #${card.id} mo'ateera!` : `Kaartellaan #${card.id} mo'ateera!`;
-                document.getElementById('win-msg').innerText = msg;
+                document.getElementById('win-msg').innerText = card.isMine ? `MO'ATTAATTA! Kaartellaan #${card.id} mo'ateera!` : `Kaartellaan #${card.id} mo'ateera!`;
                 if(card.isMine) { balance += 700; updateUI(); }
 
-                // AUTO-RESTART: Sekondii 5 booda ofumaan deebisa
+                // RESTART AFTER 2 SECONDS
                 setTimeout(() => {
                     location.reload();
-                }, 5000);
+                }, 2000);
             }
         </script>
     </body>
@@ -228,7 +204,8 @@ def home():
     """
 
 def run():
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
 
 if __name__ == "__main__":
     t = Thread(target=run)
@@ -236,11 +213,11 @@ if __name__ == "__main__":
     t.start()
     
     # Conflict prevention delay
-    time.sleep(15)
+    time.sleep(20)
     
     while True:
         try:
             bot.remove_webhook()
-            bot.polling(none_stop=True, interval=5, timeout=30)
-        except Exception as e:
-            time.sleep(10)
+            bot.infinity_polling(timeout=10, long_polling_timeout=5)
+        except Exception:
+            time.sleep(15)
