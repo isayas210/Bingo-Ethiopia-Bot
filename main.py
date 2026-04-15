@@ -10,157 +10,187 @@ bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
 RENDER_URL = f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME')}"
 
-# --- SYSTEM LOGIC ---
-# Tikeetii 100 qopheessina (100 keessaa namni kute ni galmaa'a, kan hafe 'Mana')
-game_data = {
-    "start_time": time.time(),
-    "called_balls": [],
-    "tickets": {}, # {ticket_id: [numbers]}
-    "winners": [],
-    "is_active": False
-}
+# --- DATABASE SIMULATION ---
+# Taphni hundaaf wal-qixa akka deemuuf server irratti qabanna
+class BingoEngine:
+    def __init__(self):
+        self.reset_game()
 
-def setup_new_game():
-    global game_data
-    game_data["start_time"] = time.time()
-    game_data["called_balls"] = []
-    game_data["winners"] = []
-    game_data["is_active"] = False
-    # Tikeetii 100 guutuu lakkofsa random uumnaan
-    for i in range(1, 101):
-        nums = random.sample(range(1, 101), 25)
-        game_data["tickets"][i] = nums
+    def reset_game(self):
+        self.start_time = time.time()
+        self.called_balls = []
+        self.is_drawing = False
+        self.winner_id = None
+        # Tikeetii 100 guutuu kallaattiin qopheessu
+        self.all_tickets = {}
+        for i in range(1, 101):
+            # Traditional bingo layout: Column 1 (1-20), Col 2 (21-40)...
+            ticket = []
+            for col in range(5):
+                col_nums = random.sample(range(col*20 + 1, col*20 + 21), 5)
+                ticket.extend(col_nums)
+            self.all_tickets[i] = ticket
 
-setup_new_game()
+engine = BingoEngine()
 
-@app.route('/game_sync')
-def game_sync():
+@app.route('/sync')
+def sync():
     now = time.time()
-    elapsed = now - game_data["start_time"]
+    elapsed = now - engine.start_time
     
-    # 40s Selection, booda drawing eegala
+    # Reset game every 5 minutes
+    if elapsed > 300:
+        engine.reset_game()
+        elapsed = 0
+
     if elapsed > 40:
-        game_data["is_active"] = True
-        needed_balls = int((elapsed - 40) // 3) # 3 sec tokko
-        if len(game_data["called_balls"]) < needed_balls and len(game_data["called_balls"]) < 100:
-            while len(game_data["called_balls"]) < needed_balls:
-                n = random.randint(1, 100)
-                if n not in game_data["called_balls"]:
-                    game_data["called_balls"].append(n)
-        
+        engine.is_drawing = True
+        # Speed: Ball every 3.5 seconds
+        target_count = int((elapsed - 40) // 3.5)
+        while len(engine.called_balls) < target_count and len(engine.called_balls) < 100:
+            n = random.randint(1, 100)
+            if n not in engine.called_balls:
+                engine.called_balls.append(n)
+                # Check for winners immediately on server
+                self_check_winners()
+
     return jsonify({
         "elapsed": elapsed,
-        "called": game_data["called_balls"],
-        "is_active": game_data["is_active"],
-        "tickets": game_data["tickets"] # Tikeetii 100nuu ni erga
+        "balls": engine.called_balls,
+        "is_drawing": engine.is_drawing,
+        "tickets": engine.all_tickets,
+        "winner": engine.winner_id
     })
 
+def self_check_winners():
+    if engine.winner_id: return
+    for tid, nums in engine.all_tickets.items():
+        # Check rows
+        for r in range(5):
+            row = nums[r*5 : r*5+5]
+            if all(n in engine.called_balls for n in row):
+                engine.winner_id = tid
+                return
+
+# --- UI INTERFACE ---
 HTML_CONTENT = """
 <!DOCTYPE html>
-<html lang="or">
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bingo Ethiopia - House System</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bingo Ethio Pro</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { font-family: sans-serif; background: #050a14; color: white; text-align: center; margin: 0; padding: 10px; }
-        .card-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 20px; }
-        .bingo-table { font-size: 10px; border-collapse: collapse; width: 100%; background: #000; border: 1px solid #ffcc00; }
-        .bingo-table td { border: 1px solid #333; height: 25px; text-align: center; }
-        .marked { background: #28a745 !important; color: white; }
-        .house-label { font-size: 9px; color: #ff4444; }
-        .user-label { font-size: 9px; color: #00ffcc; font-weight: bold; }
-        .ball { font-size: 40px; background: white; color: #000; width: 80px; height: 80px; border-radius: 50%; line-height: 80px; display: inline-block; border: 4px solid #ffcc00; }
+        body { font-family: sans-serif; background: #050a14; color: white; text-align: center; margin: 0; padding: 5px; }
+        .stats { background: #001f3f; padding: 10px; border-bottom: 2px solid #ffcc00; sticky: top; }
+        .ball { font-size: 45px; font-weight: bold; background: #fff; color: #000; width: 80px; height: 80px; line-height: 80px; border-radius: 50%; display: inline-block; border: 4px solid #ffcc00; box-shadow: 0 0 15px #ffcc00; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; padding: 10px; }
+        .card { background: #000; border: 1px solid #333; padding: 5px; border-radius: 8px; position: relative; }
+        .card.mine { border: 2px solid #00ffcc; box-shadow: 0 0 10px #00ffcc; }
+        .card.winner { border: 3px solid #ffcc00; animation: blink 0.5s infinite; }
+        @keyframes blink { 0% {opacity: 1;} 50% {opacity: 0.5;} }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        td { border: 1px solid #222; height: 25px; background: #1a2a44; }
+        td.hit { background: #28a745 !important; color: white; font-weight: bold; }
+        .tag { font-size: 9px; position: absolute; top: -8px; left: 5px; background: #ffcc00; color: #000; padding: 2px 5px; border-radius: 4px; }
     </style>
 </head>
 <body>
-    <h2 style="color:#ffcc00;">BINGO ETHIOPIA LIVE</h2>
-    <div id="status">Eeggachaa...</div>
-    <div class="ball" id="currentBall">?</div>
-    
-    <div id="selection-zone">
-        <h3>Tikeetii Kee Kuti (1-100)</h3>
-        <div id="picker-grid" style="display:grid; grid-template-columns: repeat(10, 1fr); gap:2px;"></div>
+    <div class="stats">
+        <div id="timer">Eeggachaa...</div>
+        <div class="ball" id="lastBall">?</div>
     </div>
 
-    <div id="game-zone" style="display:none;">
-        <div class="card-container" id="all-cards"></div>
+    <div id="selection" style="padding: 20px;">
+        <p>Tikeetii Kee Kuti (1-100):</p>
+        <div id="picker" style="display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px;"></div>
     </div>
+
+    <div id="display" class="grid"></div>
 
 <script>
-    let myTickets = [];
-    let allTicketsData = {};
-    let isWinnerFound = false;
+    let tg = window.Telegram.WebApp;
+    let mySelection = [];
+    let isDrawing = false;
 
-    // 1. Grid Picker
-    const picker = document.getElementById('picker-grid');
-    for(let i=1; i<=100; i++) {
+    // Build Picker
+    const p = document.getElementById('picker');
+    for(let i=1; i<=100; i++){
         let b = document.createElement('button');
         b.innerText = i;
-        b.style.padding = "5px";
         b.onclick = () => {
-            if(!myTickets.includes(i)) {
-                myTickets.push(i);
-                b.style.background = "#ffcc00";
-            }
+            if(mySelection.includes(i)) mySelection = mySelection.filter(x=>x!=i);
+            else mySelection.push(i);
+            b.style.background = mySelection.includes(i) ? "#ffcc00" : "";
         };
-        picker.appendChild(b);
+        p.appendChild(b);
     }
 
-    async function sync() {
-        if(isWinnerFound) return;
-        let res = await fetch('/game_sync');
-        let data = await res.json();
-        allTicketsData = data.tickets;
+    async function update() {
+        let r = await fetch('/sync');
+        let d = await r.json();
 
-        if(data.is_active) {
-            document.getElementById('selection-zone').style.display = 'none';
-            document.getElementById('game-zone').style.display = 'block';
-            document.getElementById('currentBall').innerText = data.called[data.called.length-1] || "?";
-            renderCards(data.called);
+        if(!d.is_drawing) {
+            document.getElementById('timer').innerText = "Tikeetii Kuti: " + Math.max(0, 40-Math.floor(d.elapsed)) + "s";
+            document.getElementById('selection').style.display = "block";
+            document.getElementById('display').style.display = "none";
         } else {
-            document.getElementById('status').innerText = "Tikeetii Kuti: " + Math.max(0, 40 - Math.floor(data.elapsed)) + "s";
+            document.getElementById('selection').style.display = "none";
+            document.getElementById('display').style.display = "grid";
+            document.getElementById('lastBall').innerText = d.balls[d.balls.length-1] || "?";
+            render(d);
         }
     }
 
-    function renderCards(called) {
-        const container = document.getElementById('all-cards');
-        container.innerHTML = "";
-        
+    function render(d) {
+        const cont = document.getElementById('display');
+        cont.innerHTML = "";
         for(let i=1; i<=100; i++) {
-            let nums = allTicketsData[i];
-            let isMine = myTickets.includes(i);
-            let table = `<div class="card-box">
-                <span class="${isMine ? 'user-label' : 'house-label'}">${isMine ? 'TIKEETII KEE' : 'TIKEETII MANAA'} #${i}</span>
-                <table class="bingo-table">`;
+            let isMine = mySelection.includes(i);
+            let isWin = d.winner == i;
+            let nums = d.tickets[i];
             
-            let markedCountInTicket = 0;
-            for(let r=0; r<5; r++) {
-                table += "<tr>";
-                let rowMarked = 0;
-                for(let c=0; c<5; c++) {
-                    let v = nums[r*5+c];
-                    let isMarked = called.includes(v);
-                    if(isMarked) rowMarked++;
-                    table += `<td class="${isMarked ? 'marked' : ''}">${v}</td>`;
+            let h = `<div class="card ${isMine?'mine':''} ${isWin?'winner':''}">
+                <span class="tag">#${i} ${isMine?'(Kee)':''}</span>
+                <table>`;
+            for(let row=0; row<5; row++) {
+                h += "<tr>";
+                for(let col=0; col<5; col++) {
+                    let v = nums[row*5 + col];
+                    let hit = d.balls.includes(v);
+                    h += `<td class="${hit?'hit':''}">${v}</td>`;
                 }
-                table += "</tr>";
-                if(rowMarked === 5) announceBingo(i, isMine);
+                h += "</tr>";
             }
-            table += "</table></div>";
-            container.innerHTML += table;
+            h += "</table></div>";
+            cont.innerHTML += h;
+        }
+        if(d.winner) {
+            let winTxt = mySelection.includes(d.winner) ? "ATTI INJIFATTE! (x100)" : "MANNI MO'ATE!";
+            document.getElementById('timer').innerText = "WINNER: #" + d.winner + " - " + winTxt;
         }
     }
 
-    function announceBingo(id, isMine) {
-        if(isWinnerFound) return;
-        isWinnerFound = true;
-        let winner = isMine ? "ATTI INJIFATTEETTA! (x100)" : "MANNI MO'ATE! (Taphattoonni hundi kishiraniiru)";
-        alert("BINGO! Tikeetii #" + id + "\\n" + winner);
-        setTimeout(() => location.reload(), 5000);
-    }
-
-    setInterval(sync, 2000);
+    setInterval(update, 3000);
 </script>
 </body>
 </html>
+"""
+
+@app.route('/')
+def index():
+    return render_template_string(HTML_CONTENT)
+
+@bot.message_handler(commands=['start'])
+def start(m):
+    bot.send_message(m.chat.id, "Bingo Live Ethiopia Pro! Tikeetii kee filadhu.", 
+        reply_markup=ReplyKeyboardMarkup(resize_keyboard=True).add(KeyboardButton("🎮 Bingo Bani", web_app=WebAppInfo(url=RENDER_URL))))
+
+@app.route('/' + TOKEN, methods=['POST'])
+def webhook():
+    bot.process_new_updates([telebot.types.Update.de_json(request.get_data().decode('utf-8'))])
+    return "!", 200
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
