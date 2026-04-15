@@ -3,12 +3,10 @@ import time
 import random
 import telebot
 from flask import Flask, request, render_template_string, jsonify
-from telebot.types import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
 
 TOKEN = os.environ.get('BOT_TOKEN')
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
-RENDER_URL = f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME')}"
 
 class BingoEngine:
     def __init__(self):
@@ -21,6 +19,7 @@ class BingoEngine:
         self.is_drawing = False
         self.winner_id = None
         self.all_tickets = {}
+        # B:1-20, I:21-40, N:41-60, G:61-80, O:81-100
         for i in range(1, 101):
             ticket = []
             for col in range(5):
@@ -46,6 +45,7 @@ def sync():
         engine.reset_game()
         elapsed = 0
 
+    # Lakkofsa waamuu (Sekondii 40 booda)
     if 40 < elapsed < 450 and not engine.winner_id:
         engine.is_drawing = True
         target_count = int((elapsed - 40) // 4) 
@@ -54,6 +54,8 @@ def sync():
             if n not in engine.called_nums:
                 engine.called_nums.append(n)
                 engine.called_balls.append(f"{get_letter(n)}-{n}")
+                
+                # Winner check
                 for tid, cols in engine.all_tickets.items():
                     for r in range(5):
                         if all(((cols[c][r] in engine.called_nums) or (c==2 and r==2)) for c in range(5)):
@@ -74,13 +76,13 @@ HTML_CONTENT = """
     <style>
         body { font-family: sans-serif; background: #050a14; color: white; text-align: center; margin: 0; overflow-x: hidden; }
         .stats { background: #001f3f; padding: 5px; border-bottom: 2px solid #ffcc00; position: sticky; top:0; z-index:100; height: 85px; }
-        .ball { font-size: 28px; font-weight: 900; background: white; color: #001f3f; width: 60px; height: 60px; line-height: 60px; border-radius: 50%; display: inline-block; border: 3px solid #ffcc00; }
+        .ball { font-size: 26px; font-weight: 900; background: white; color: #001f3f; width: 60px; height: 60px; line-height: 60px; border-radius: 50%; display: inline-block; border: 3px solid #ffcc00; }
         
         #picker { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; padding: 5px; }
-        .p-btn { background: #ffcc00; color: #000; border: 1px solid #fff; padding: 10px 0; border-radius: 4px; font-weight: bold; font-size: 11px; }
+        .p-btn { background: #ffcc00; color: #000; border: 1px solid #fff; padding: 8px 0; border-radius: 3px; font-weight: bold; font-size: 11px; }
         .p-btn.active { background: #28a745 !important; color: white; }
 
-        /* MULTI-CARD GRID (2 COLUMNS) */
+        /* ULTRA COMPACT GRID (Lama lamaan wal biratti) */
         .grid-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; padding: 5px; }
         .card { background: #0a101e; border: 1px solid #00ffcc; border-radius: 6px; padding: 2px; }
         .card-id { font-size: 8px; color: #00ffcc; margin-bottom: 1px; }
@@ -91,7 +93,7 @@ HTML_CONTENT = """
         td.hit { background: #28a745 !important; }
         td.free { background: #ffcc00 !important; color: #000; font-size: 6px; }
         
-        #status { font-size: 12px; font-weight: bold; }
+        #status { font-size: 12px; font-weight: bold; margin-bottom: 2px; }
     </style>
 </head>
 <body>
@@ -101,7 +103,7 @@ HTML_CONTENT = """
     </div>
 
     <div id="selection-view">
-        <p id="msg" style="font-size: 12px; margin: 5px;">Tikeetii Kee Filadhu:</p>
+        <p id="msg" style="font-size: 12px; margin: 8px;">Tikeetii Kee Kuti:</p>
         <div id="picker"></div>
     </div>
 
@@ -111,7 +113,7 @@ HTML_CONTENT = """
 
 <script>
     let mySelection = [];
-    let canPlayThisRound = false; 
+    let isParticipating = false; // Namni sun tapha amma deemaa jiru keessa jiraachuu isaa
     const picker = document.getElementById('picker');
     
     for(let i=1; i<=100; i++) {
@@ -134,26 +136,27 @@ HTML_CONTENT = """
             let r = await fetch('/sync');
             let d = await r.json();
             
-            // Taphni haaraa yoo eegalu Reset godhi
+            // 1. FRESH RESET: Taphni haaraa yoo eegalu
             if(!d.is_drawing && !d.winner && d.elapsed < 5) {
                 mySelection = [];
-                canPlayThisRound = false;
+                isParticipating = false;
                 document.querySelectorAll('.p-btn').forEach(x => x.classList.remove('active'));
             }
 
-            // Namni yeroo filannoo tikeetii kuteera ta'e taphachuu danda'a
+            // 2. CHECK ELIGIBILITY: Namni sun sekondii 40 dura tikeetii kuteeraa?
             if (d.elapsed < 40 && mySelection.length > 0) {
-                canPlayThisRound = true;
+                isParticipating = true;
             }
 
+            // 3. AUTO-VIEW TOGGLE
             if(!d.is_drawing && !d.winner) {
                 document.getElementById('status').innerText = "FILANNOO: " + Math.max(0, 40-Math.floor(d.elapsed)) + "s";
                 document.getElementById('selection-view').style.display = "block";
                 document.getElementById('game-view').style.display = "none";
-                document.getElementById('msg').innerText = "Tikeetii Kee Filadhu:";
+                document.getElementById('msg').innerText = "Tikeetii Kee Kuti:";
             } else {
-                // AUTO-SWITCH: Yoo kuteera ta'e qofa tapha agarsiisi
-                if (canPlayThisRound) {
+                // Yoo tikeetii kuteera ta'e tapha agarsiisi
+                if (isParticipating) {
                     document.getElementById('selection-view').style.display = "none";
                     document.getElementById('game-view').style.display = "block";
                     document.getElementById('ballDisp').innerText = d.balls[d.balls.length-1] || "?";
@@ -161,10 +164,10 @@ HTML_CONTENT = """
                     else document.getElementById('status').innerText = "TAPHNI DEEMAA JIRA...";
                     render(d);
                 } else {
-                    // Namni haaraa dhufe akka eegu godhi
+                    // Yoo tapha keessa hin jirre "Eegi" ittiin jedhi
                     document.getElementById('selection-view').style.display = "block";
                     document.getElementById('game-view').style.display = "none";
-                    document.getElementById('msg').innerText = "Taphni deemaa jira. Kan biraa hamma eegalutti eegi...";
+                    document.getElementById('msg').innerText = "Taphni amma deemaa jira. Kan biraa hamma eegalutti eegi...";
                     document.getElementById('status').innerText = "EEGI...";
                 }
             }
@@ -176,6 +179,7 @@ HTML_CONTENT = """
         cont.innerHTML = "";
         mySelection.forEach(tid => {
             let cols = d.tickets[tid.toString()];
+            if(!cols) return;
             let h = `<div class="card"><div class="card-id">#${tid}</div>
                 <table><thead><tr><th>B</th><th>I</th><th>N</th><th>G</th><th>O</th></tr></thead><tbody>`;
             for(let r=0; r<5; r++) {
