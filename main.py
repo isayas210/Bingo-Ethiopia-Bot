@@ -16,125 +16,142 @@ def home():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Bingo Ethiopia - Selection First</title>
+        <title>Bingo Ethiopia - Multi Ticket</title>
         <script src="https://telegram.org/js/telegram-web-app.js"></script>
         <style>
             body { font-family: sans-serif; background: #050a14; color: white; text-align: center; margin: 0; padding: 10px; }
-            .card { background: #001f3f; border: 2px solid #00d4ff; border-radius: 15px; padding: 15px; box-shadow: 0 0 15px #00d4ff; }
-            h2 { color: #ffcc00; margin-top: 0; }
+            .card { background: #001f3f; border: 2px solid #00d4ff; border-radius: 15px; padding: 10px; margin-bottom: 15px; }
             
-            /* Selection Grid */
-            .grid-100 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; max-height: 350px; overflow-y: auto; background: rgba(0,0,0,0.4); padding: 10px; border-radius: 10px; border: 1px solid #333; }
-            .n-btn { background: #1a2a44; border: 1px solid #007bff; color: white; padding: 12px 0; border-radius: 6px; cursor: pointer; font-size: 14px; }
-            .n-btn.active { background: #ffcc00; color: #000; font-weight: bold; border-color: #fff; transform: scale(0.95); }
+            /* Multi-Ticket Layout */
+            #ticket-container { display: flex; flex-direction: column; gap: 20px; align-items: center; }
+            .bingo-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; background: #000; padding: 5px; border-radius: 8px; width: 280px; border: 1px solid #555; }
+            .bingo-header { background: #ffcc00; color: #000; font-weight: bold; font-size: 14px; padding: 5px 0; }
+            .cell { background: #1a2a44; height: 35px; line-height: 35px; font-size: 13px; border: 1px solid #333; }
+            .cell.marked { background: #28a745; color: white; box-shadow: inset 0 0 5px #fff; }
 
-            /* Live Game Grid */
-            .bingo-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-top: 15px; }
-            .cell { background: #1a2a44; height: 50px; line-height: 50px; border: 1px solid #333; border-radius: 5px; font-weight: bold; }
-            .cell.marked { background: #28a745; color: white; border: 2px solid #fff; box-shadow: 0 0 10px #28a745; }
-
-            .timer { font-size: 20px; color: #ff4444; font-weight: bold; margin-bottom: 10px; }
-            .ball { font-size: 60px; font-weight: bold; background: white; color: #001f3f; width: 110px; height: 110px; line-height: 110px; border-radius: 50%; border: 5px solid #ffcc00; display: inline-block; margin: 20px 0; }
-            .win-box { display: none; background: #28a745; padding: 20px; border-radius: 15px; border: 3px solid #fff; margin-top: 15px; }
-            button#start-now { background: #28a745; color: white; border: none; padding: 15px; width: 100%; border-radius: 10px; font-weight: bold; margin-top: 10px; }
+            .controls { margin-bottom: 20px; }
+            .btn-select { background: #007bff; color: white; border: none; padding: 10px 20px; margin: 5px; border-radius: 5px; font-weight: bold; }
+            .btn-select.active { background: #ffcc00; color: #000; }
+            
+            .ball { font-size: 50px; font-weight: bold; background: white; color: #001f3f; width: 90px; height: 90px; line-height: 90px; border-radius: 50%; border: 4px solid #ffcc00; display: inline-block; margin: 15px 0; }
+            .win-msg { display: none; background: #28a745; padding: 15px; border-radius: 10px; margin-top: 10px; border: 2px solid #fff; }
         </style>
     </head>
     <body>
     <div class="card">
-        <h2>BINGO ETHIOPIA</h2>
+        <h2 style="color:#ffcc00; margin:5px;">BINGO ETHIOPIA</h2>
         
-        <div id="selection-stage">
-            <div class="timer">Yeroo: <span id="time">40</span>s</div>
-            <p style="font-size:14px; color:#00ffcc;">Lakkofsota 25 filadhu (1-100):</p>
-            <div class="grid-100" id="picker"></div>
-            <p id="stat">Filatame: 0/25</p>
-            <button id="start-now" onclick="confirmSelection()">TAPHA JALQABI</button>
+        <div id="setup">
+            <p>Tikeetii meeqa kuttu?</p>
+            <div class="controls">
+                <button class="btn-select" onclick="setTickets(5)" id="btn5">5 TIKEETII</button>
+                <button class="btn-select" onclick="setTickets(10)" id="btn10">10 TIKEETII</button>
+            </div>
+            <p class="timer">Hafe: <span id="timer">40</span>s</p>
+            <div id="preview-msg" style="font-size:12px; color:#00ffcc;">Ofumaan siif filatama...</div>
         </div>
 
-        <div id="game-stage" style="display:none;">
-            <div class="bingo-grid" id="main-grid"></div>
-            <div class="ball" id="currentNum">?</div>
-            <div class="win-box" id="win-ui">
+        <div id="game" style="display:none;">
+            <div class="ball" id="curN">?</div>
+            <div class="win-msg" id="win-area">
                 <h1 style="margin:0;">🎊 BINGO! 🎊</h1>
-                <p>Injifate: <span id="winner-n" style="font-size:30px;"></span></p>
+                <p>Tikeetii kee keessaa tokko sarara 1 guuteera!</p>
             </div>
-            <div id="logs" style="font-size:12px; color:#aaa; margin-top:10px; text-align:left; height:50px; overflow:auto;">History: </div>
+            <div id="ticket-container"></div>
+            <div id="hist" style="font-size:11px; color:#aaa; margin-top:15px;">History: </div>
         </div>
     </div>
 
     <script>
         let tg = window.Telegram.WebApp;
-        let timeLeft = 40;
-        let selected = [];
+        let timer = 40;
+        let numTickets = 5; // Default
+        let allTickets = [];
         let called = [];
-        let isOver = false;
+        let isGameOver = false;
 
-        // 1-100 Grid uumuu
-        const picker = document.getElementById('picker');
-        for(let i=1; i<=100; i++) {
-            let b = document.createElement('button');
-            b.className = 'n-btn'; b.innerText = i;
-            b.onclick = () => {
-                if(selected.includes(i)) {
-                    selected = selected.filter(x => x !== i);
-                    b.classList.remove('active');
-                } else if(selected.length < 25) {
-                    selected.push(i);
-                    b.classList.add('active');
-                }
-                document.getElementById('stat').innerText = "Filatame: " + selected.length + "/25";
-            };
-            picker.appendChild(b);
+        function setTickets(n) {
+            numTickets = n;
+            document.getElementById('btn5').classList.toggle('active', n===5);
+            document.getElementById('btn10').classList.toggle('active', n===10);
         }
 
-        // Timer
-        let timerId = setInterval(() => {
-            timeLeft--;
-            document.getElementById('time').innerText = timeLeft;
-            if(timeLeft <= 0) { clearInterval(timerId); confirmSelection(); }
+        let cd = setInterval(() => {
+            timer--;
+            document.getElementById('timer').innerText = timer;
+            if(timer <= 0) { clearInterval(cd); startGame(); }
         }, 1000);
 
-        function confirmSelection() {
-            clearInterval(timerId);
-            // Yoo gahaa hin filatin ofumaan guuti
-            while(selected.length < 25) {
+        function generateTicket() {
+            let tix = [];
+            while(tix.length < 25) {
                 let r = Math.floor(Math.random()*100)+1;
-                if(!selected.includes(r)) selected.push(r);
+                if(!tix.includes(r)) tix.push(r);
             }
-            
-            document.getElementById('selection-stage').style.display = 'none';
-            document.getElementById('game-stage').style.display = 'block';
-            
-            // 5x5 Live Grid uumuu
-            const mg = document.getElementById('main-grid');
-            selected.sort((a,b) => a-b).forEach(n => {
-                let d = document.createElement('div');
-                d.className = 'cell'; d.id = 'cell-' + n; d.innerText = n;
-                mg.appendChild(d);
-            });
-            
-            setTimeout(drawBall, 2000);
+            return tix;
         }
 
-        function drawBall() {
-            if(called.length >= 100 || isOver) return;
+        function startGame() {
+            document.getElementById('setup').style.display = 'none';
+            document.getElementById('game').style.display = 'block';
+            
+            const container = document.getElementById('ticket-container');
+            for(let i=0; i<numTickets; i++) {
+                let tixData = generateTicket();
+                allTickets.push(tixData);
+                
+                let grid = document.createElement('div');
+                grid.className = 'bingo-grid';
+                grid.innerHTML = '<div class="bingo-header">B</div><div class="bingo-header">I</div><div class="bingo-header">N</div><div class="bingo-header">G</div><div class="bingo-header">O</div>';
+                
+                tixData.forEach(n => {
+                    let d = document.createElement('div');
+                    d.className = 'cell';
+                    d.id = `tix${i}-n${n}`;
+                    d.innerText = n;
+                    grid.appendChild(d);
+                });
+                
+                let title = document.createElement('p');
+                title.innerText = "Tikeetii #" + (i+1);
+                title.style.margin = "5px 0";
+                container.appendChild(title);
+                container.appendChild(grid);
+            }
+            play();
+        }
+
+        function play() {
+            if(called.length >= 100 || isGameOver) return;
             let n; do { n = Math.floor(Math.random()*100)+1; } while(called.includes(n));
             called.push(n);
             
-            document.getElementById('currentNum').innerText = n;
-            document.getElementById('logs').innerHTML += n + ", ";
+            document.getElementById('curN').innerText = n;
+            document.getElementById('hist').innerHTML += n + ", ";
 
-            let match = document.getElementById('cell-' + n);
-            if(match) {
-                match.classList.add('marked');
-                // Line 1 Win Logic: Inni jalqaba karteellaa isaa irratti lakkofsa argate ni mo'ata
-                isOver = true;
-                document.getElementById('win-ui').style.display = 'block';
-                document.getElementById('winner-n').innerText = n;
-                tg.MainButton.setText("MAALLAQA FUDHU").show();
+            // Tikeetota hunda keessatti lakkofsa kana barbaadi
+            for(let i=0; i<numTickets; i++) {
+                let cell = document.getElementById(`tix${i}-n${n}`);
+                if(cell) {
+                    cell.classList.add('marked');
+                    checkLineWin(i);
+                }
+            }
+
+            if(!isGameOver) setTimeout(play, 3500);
+        }
+
+        function checkLineWin(tixIndex) {
+            // Logic salphaa: Tikeetii tokko keessaa 5 yoo guute (Line 1)
+            let markedCount = document.querySelectorAll(`#ticket-container .bingo-grid:nth-of-type(${tixIndex+1}) .cell.marked`).length;
+            
+            // Asirratti 'Line 1' jechuun sarara tokko guutuu dha.
+            // Fakkeenyaaf, yoo xiqqaate lakkofsota 5 tikeetii tokko keessaa yoo guutan:
+            if(markedCount >= 5) {
+                isGameOver = true;
+                document.getElementById('win-area').style.display = 'block';
+                tg.MainButton.setText("INJIFATTEETTA! - FUDHU").show();
                 tg.HapticFeedback.notificationOccurred('success');
-            } else {
-                setTimeout(drawBall, 3000);
             }
         }
     </script>
@@ -144,7 +161,7 @@ def home():
 
 @bot.message_handler(commands=['start'])
 def start(m):
-    bot.send_message(m.chat.id, "Baga nagaan dhuftan! Lakkofsa 1-100 gidduu jiru filachuun tapha jalqabaa.", 
+    bot.send_message(m.chat.id, "Baga nagaan dhuftan! Tikeetii 5 ykn 10 filadhu.\n40 sec booda taphni ofumaan eegala.", 
         reply_markup=ReplyKeyboardMarkup(resize_keyboard=True).add(KeyboardButton("🎮 Bingo Bani", web_app=WebAppInfo(url=RENDER_URL))))
 
 @app.route('/' + TOKEN, methods=['POST'])
