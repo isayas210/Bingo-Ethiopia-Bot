@@ -46,10 +46,10 @@ def sync():
         engine.reset_game()
         elapsed = 0
 
-    if 40 < elapsed < 300 and not engine.winner_id:
+    if 40 < elapsed < 400 and not engine.winner_id:
         engine.is_drawing = True
-        target = int((elapsed - 40) // 4)
-        while len(engine.called_nums) < target:
+        target_count = int((elapsed - 40) // 4) 
+        while len(engine.called_nums) < target_count:
             n = random.randint(1, 100)
             if n not in engine.called_nums:
                 engine.called_nums.append(n)
@@ -73,66 +73,108 @@ HTML_CONTENT = """
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
-        body { font-family: sans-serif; background: #050a14; color: white; text-align: center; margin: 0; }
-        .stats { background: #001f3f; padding: 10px; border-bottom: 3px solid #ffcc00; position: sticky; top:0; z-index:10; }
-        .ball { font-size: 35px; font-weight: bold; background: white; color: #001f3f; width: 90px; height: 90px; line-height: 90px; border-radius: 50%; display: inline-block; border: 4px solid #ffcc00; margin-top:5px; }
-        #picker { display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px; padding: 10px; }
-        .p-btn { background: #ffcc00; color: #000; border: 1px solid #fff; padding: 12px 0; border-radius: 5px; font-weight: bold; font-size: 14px; }
+        body { font-family: sans-serif; background: #050a14; color: white; text-align: center; margin: 0; overflow-x: hidden; }
+        .stats { background: #001f3f; padding: 5px; border-bottom: 2px solid #ffcc00; position: sticky; top:0; z-index:100; }
+        .ball { font-size: 24px; font-weight: bold; background: white; color: #001f3f; width: 55px; height: 55px; line-height: 55px; border-radius: 50%; display: inline-block; border: 3px solid #ffcc00; }
+        
+        #picker { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; padding: 5px; }
+        .p-btn { background: #ffcc00; color: #000; border: 1px solid #fff; padding: 8px 0; border-radius: 3px; font-weight: bold; font-size: 11px; }
         .p-btn.active { background: #28a745 !important; color: white; }
-        .card { width: 95%; max-width: 380px; background: #0a101e; border: 3px solid #00ffcc; border-radius: 15px; padding: 10px; margin: 15px auto; }
+
+        /* GRID FOR 8 CARDS (2 COLUMNS) */
+        .grid-container { 
+            display: grid; 
+            grid-template-columns: repeat(2, 1fr); 
+            gap: 4px; 
+            padding: 5px; 
+        }
+        .card { 
+            background: #0a101e; 
+            border: 1px solid #00ffcc; 
+            border-radius: 6px; 
+            padding: 2px; 
+        }
         table { width: 100%; border-collapse: collapse; }
-        th { color: #ffcc00; font-size: 22px; padding: 5px; }
-        td { border: 1px solid #222; height: 45px; font-size: 18px; background: #1a2a44; font-weight: bold; }
+        th { color: #ffcc00; font-size: 9px; padding: 0; }
+        td { border: 1px solid #222; height: 20px; font-size: 10px; background: #1a2a44; font-weight: bold; }
         td.hit { background: #28a745 !important; }
-        td.free { background: #ffcc00 !important; color: #000; font-size: 11px; }
+        td.free { background: #ffcc00 !important; color: #000; font-size: 6px; }
+        
+        .winner-msg { color: #ffcc00; font-weight: bold; font-size: 13px; }
     </style>
 </head>
 <body>
     <div class="stats">
-        <div id="status">Syncing...</div>
+        <div id="status" style="font-size: 11px;">Syncing...</div>
         <div class="ball" id="ballDisp">?</div>
     </div>
-    <div id="selection">
-        <p>Tikeetii Kee Kuti (Keelloo -> Magariisa):</p>
+
+    <div id="selection-view">
+        <p style="font-size: 12px; margin: 5px;">Tikeetii Kee Filadhu:</p>
         <div id="picker"></div>
     </div>
-    <div id="game" style="display:none;">
-        <div id="my-cards"></div>
+
+    <div id="game-view" style="display:none;">
+        <div id="my-cards" class="grid-container"></div>
     </div>
+
 <script>
     let mySelection = [];
     const picker = document.getElementById('picker');
+    
     for(let i=1; i<=100; i++) {
         let b = document.createElement('button');
-        b.className = 'p-btn'; b.innerText = i;
+        b.className = 'p-btn'; b.id = 'btn-'+i; b.innerText = i;
         b.onclick = () => {
-            if(mySelection.includes(i)) { mySelection = mySelection.filter(x=>x!=i); b.classList.remove('active'); }
-            else { mySelection.push(i); b.classList.add('active'); }
+            if(mySelection.includes(i)) {
+                mySelection = mySelection.filter(x => x != i);
+                b.classList.remove('active');
+            } else {
+                mySelection.push(i);
+                b.classList.add('active');
+            }
         };
         picker.appendChild(b);
     }
+
     async function sync() {
-        let r = await fetch('/sync');
-        let d = await r.json();
-        if(!d.is_drawing && !d.winner) {
-            if(d.elapsed < 5) { mySelection = []; document.querySelectorAll('.p-btn').forEach(x=>x.classList.remove('active')); }
-            document.getElementById('status').innerText = "TIKEETII KUTI: " + Math.max(0, 40-Math.floor(d.elapsed)) + "s";
-            document.getElementById('selection').style.display = "block";
-            document.getElementById('game').style.display = "none";
-        } else {
-            document.getElementById('selection').style.display = "none";
-            document.getElementById('game').style.display = "block";
-            document.getElementById('ballDisp').innerText = d.balls[d.balls.length-1] || "?";
-            if(d.winner) document.getElementById('status').innerText = "WINNER: #" + d.winner;
-            render(d);
-        }
+        try {
+            let r = await fetch('/sync');
+            let d = await r.json();
+            
+            // 1. FRESH SELECTION RESET
+            if(!d.is_drawing && !d.winner && d.elapsed < 5) {
+                mySelection = [];
+                document.querySelectorAll('.p-btn').forEach(x => x.classList.remove('active'));
+            }
+
+            // 2. AUTOMATIC VIEW SWITCH
+            if(!d.is_drawing && !d.winner) {
+                document.getElementById('status').innerText = "FILANNOO: " + Math.max(0, 40-Math.floor(d.elapsed)) + "s";
+                document.getElementById('selection-view').style.display = "block";
+                document.getElementById('game-view').style.display = "none";
+            } else {
+                document.getElementById('selection-view').style.display = "none";
+                document.getElementById('game-view').style.display = "block";
+                document.getElementById('ballDisp').innerText = d.balls[d.balls.length-1] || "?";
+                
+                if(d.winner) {
+                    document.getElementById('status').innerHTML = `<span class="winner-msg">🎊 #${d.winner} MO'ATE! 🎊</span>`;
+                } else {
+                    document.getElementById('status').innerText = "TAPHNI DEEMAA JIRA...";
+                }
+                render(d);
+            }
+        } catch(e) {}
     }
+
     function render(d) {
         const cont = document.getElementById('my-cards');
         cont.innerHTML = "";
         mySelection.forEach(tid => {
             let cols = d.tickets[tid.toString()];
-            let h = `<div class="card"><div style="color:#00ffcc; font-size:12px;">TIKEETII KEE #${tid}</div>
+            let h = `<div class="card">
+                <div style="color:#00ffcc; font-size:8px; margin-bottom:1px;">KEE #${tid}</div>
                 <table><thead><tr><th>B</th><th>I</th><th>N</th><th>G</th><th>O</th></tr></thead><tbody>`;
             for(let row=0; row<5; row++) {
                 h += "<tr>";
@@ -140,7 +182,7 @@ HTML_CONTENT = """
                     let v = cols[col][row];
                     let isFree = (col==2 && row==2);
                     let hit = d.nums.includes(v) || isFree;
-                    h += `<td class="${hit?'hit':''} ${isFree?'free':''}">${isFree?'FREE':v}</td>`;
+                    h += `<td class="${hit?'hit':''} ${isFree?'free':''}">${isFree?'F':v}</td>`;
                 }
                 h += "</tr>";
             }
@@ -152,15 +194,3 @@ HTML_CONTENT = """
 </script>
 </body>
 </html>
-"""
-
-@app.route('/')
-def index(): return render_template_string(HTML_CONTENT)
-
-@bot.message_handler(commands=['start'])
-def start(m):
-    bot.send_message(m.chat.id, "Bingo Ethiopia! Tikeetii filadhu.", 
-        reply_markup=ReplyKeyboardMarkup(resize_keyboard=True).add(KeyboardButton("🎮 Bingo Bani", web_app=WebAppInfo(url=RENDER_URL))))
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
