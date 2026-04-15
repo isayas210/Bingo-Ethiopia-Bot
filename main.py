@@ -3,6 +3,7 @@ from flask import Flask
 import os
 from threading import Thread
 import time
+import requests
 
 # BOT TOKEN
 BOT_TOKEN = "8692359063:AAHteqfebC808tTmj6qvIdjiVJIXoXRTf4c"
@@ -54,7 +55,7 @@ def home():
 
         <div id="select-view">
             <div style="padding: 8px; background: #1a1a1a; margin: 8px; border-radius: 8px;">
-                <div style="font-size: 0.7rem; color: #888;">Tapha itti aanuuf tikeetii filadhu (Sekondii 30)</div>
+                <div style="font-size: 0.7rem; color: #888;">Tikeetii filadhu (Sekondii 30)</div>
                 <div style="color: #ffeb3b; font-size: 1.2rem; font-weight: bold;">⏰ <span id="sync-timer">--</span>s</div>
             </div>
             <div class="selection-grid" id="grid-100"></div>
@@ -75,8 +76,8 @@ def home():
         </div>
 
         <script>
-            let balance = localStorage.getItem('bingo_v23_bal') ? parseFloat(localStorage.getItem('bingo_v23_bal')) : 500.00;
-            function updateUI() { document.getElementById('bal-text').innerText = balance.toFixed(2); localStorage.setItem('bingo_v23_bal', balance); }
+            let balance = localStorage.getItem('bingo_v24_bal') ? parseFloat(localStorage.getItem('bingo_v24_bal')) : 500.00;
+            function updateUI() { document.getElementById('bal-text').innerText = balance.toFixed(2); localStorage.setItem('bingo_v24_bal', balance); }
             updateUI();
 
             let selectedIDs = [];
@@ -97,7 +98,7 @@ def home():
             }
             createGrid();
 
-            // TIMER SIIRREEFFAME (SEKONDII 30)
+            // TIMER: 30 SECONDS
             setInterval(() => {
                 let now = Math.floor(Date.now() / 1000);
                 let remaining = 30 - (now % 30);
@@ -181,7 +182,7 @@ def home():
                 document.getElementById('win-msg').innerText = card.isMine ? `MO'ATTAATTA! Kaartellaan #${card.id} mo'ateera!` : `Kaartellaan #${card.id} mo'ateera!`;
                 if(card.isMine) { balance += 700; updateUI(); }
                 
-                // SEKONDII 2 BOODA DEEBISUU
+                // RESTART IN 2 SECONDS
                 setTimeout(() => { location.reload(); }, 2000);
             }
         </script>
@@ -193,17 +194,26 @@ def run():
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
 
+# CONFLICT FIX: CLEAR SESSIONS
+def clear_sessions():
+    try:
+        requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook?drop_pending_updates=True")
+        print("Telegram sessions cleared.")
+    except:
+        pass
+
 if __name__ == "__main__":
     t = Thread(target=run)
     t.daemon = True
     t.start()
     
-    # Conflict Fix: Sekondii 25 eeggannoo
-    time.sleep(25)
+    clear_sessions()
+    time.sleep(30) # Delay to allow old instances to die
     
     while True:
         try:
             bot.remove_webhook()
-            bot.infinity_polling(timeout=10, long_polling_timeout=5)
-        except Exception:
+            bot.infinity_polling(timeout=20, skip_pending_updates=True)
+        except Exception as e:
+            print(f"Error: {e}")
             time.sleep(10)
