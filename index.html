@@ -1,178 +1,88 @@
 <!DOCTYPE html>
-<html lang="or">
+<html lang="om">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bingo Ethio 24/7</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <title>Bingo Ethio Bot</title>
     <style>
-        :root { --gold: #ffcc00; --dark: #050505; --green: #2ecc71; --red: #ff4757; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--dark); color: white; margin: 0; text-align: center; user-select: none; }
-        
-        .header { background: #111; padding: 10px; border-bottom: 2px solid var(--gold); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; }
-        .bal-box { background: rgba(46, 204, 113, 0.1); padding: 5px 10px; border-radius: 10px; border: 1px solid var(--green); }
-        .bal-amt { color: var(--green); font-weight: 900; }
-
-        /* Selection Screen */
-        .selection-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; padding: 10px; }
-        .card-opt { background: #222; padding: 15px 0; border-radius: 8px; border: 1px solid #444; font-weight: bold; }
-        .card-opt.mine { background: var(--green); color: black; border-color: white; }
-        .card-opt.others { background: var(--gold); color: black; animation: pulse 1s infinite; } /* Maamila biraa */
-
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
-
-        /* Game Screen - Kartellaa Kee Qofa */
-        .boards-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 10px; }
-        .mini-card { background: #111; padding: 5px; border-radius: 8px; border: 1px solid var(--gold); }
-        .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; }
-        .cell { background: #222; aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; font-size: 11px; border-radius: 2px; }
-        .marked { background: var(--green) !important; color: black; font-weight: bold; }
-
-        #overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 2000; justify-content: center; align-items: center; flex-direction: column; }
+        body { background-color: #121212; color: white; font-family: sans-serif; text-align: center; }
+        .header { display: flex; justify-content: space-between; padding: 10px; background: #1e1e1e; }
+        .balance { color: #4CAF50; font-weight: bold; border: 1px solid #4CAF50; padding: 5px 10px; border-radius: 5px; }
+        .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; padding: 10px; max-width: 400px; margin: auto; }
+        .cell { background: #2c2c2c; padding: 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .selected { background: #b8860b !important; } /* Halluu Boora/Keelloo */
+        .winner { background: #4CAF50 !important; color: white; } /* Magariisa Injifataaf */
+        .controls { margin-top: 20px; padding: 10px; background: #1e1e1e; }
+        .btn-plus { background: #ffcc00; border: none; padding: 5px 15px; font-size: 18px; cursor: pointer; border-radius: 5px; }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <div class="bal-box"><span class="bal-amt" id="display-bal">1,540.00 ETB</span></div>
-        <div style="color:var(--gold);">Yeroo: <span id="seconds">40</span>s</div>
+<div class="header">
+    <div id="balanceDisplay" class="balance">1,540.00 ETB</div>
+    <div style="color: #ffcc00;">Yeroo: <span id="timer">34s</span></div>
+</div>
+
+<p id="msg">Tikeetii kee filadhu (Gatii: <span id="ticketPrice">2</span> ETB)</p>
+
+<div class="grid" id="bingoGrid">
     </div>
 
-    <div id="selection-screen">
-        <div style="padding:10px; font-size:12px; color:#888;">Keelloon kan namni biraa filatedha.</div>
-        <div class="selection-grid" id="s-grid"></div>
-    </div>
+<div class="controls">
+    <span>Gatii Muramu: </span>
+    <b id="currentPrice">2</b> 
+    <button class="btn-plus" onclick="increasePrice()">+</button>
+</div>
 
-    <div id="game-screen" style="display:none;">
-        <div style="padding:20px; font-size:60px; color:var(--gold); font-weight:900;" id="caller">--</div>
-        <div class="boards-grid" id="boards-container"></div>
-    </div>
+<script>
+    let balance = 1540;
+    let price = 2;
+    let selectedTickets = [];
 
-    <div id="overlay">
-        <div id="win-msg" style="text-align:center;"></div>
-    </div>
+    // Grid uumuu (1-100)
+    const grid = document.getElementById('bingoGrid');
+    for (let i = 1; i <= 100; i++) {
+        let div = document.createElement('div');
+        div.className = 'cell';
+        div.innerText = i;
+        div.onclick = () => selectTicket(i, div);
+        grid.appendChild(div);
+    }
 
-    <script>
-        let myCards = [];
-        let otherCards = []; // Tikeetii namoota biraa
-        let balance = 1540;
-        let timeLeft = 40; // Second 40
-        let isBingo = false;
-        let gameGrids = {};
-
-        // Fake player simulation (Keelloo akka mul'atuuf)
-        for(let i=0; i<15; i++) otherCards.push(Math.floor(Math.random() * 100) + 1);
-
-        const sGrid = document.getElementById('s-grid');
-        for (let i = 1; i <= 100; i++) {
-            const div = document.createElement('div');
-            div.className = 'card-opt';
-            if (otherCards.includes(i)) div.classList.add('others');
-            div.innerText = i;
-            div.onclick = function() {
-                if (otherCards.includes(i)) return; // Kan namaa hin filatamu
-                if (this.classList.contains('mine')) {
-                    this.classList.remove('mine');
-                    myCards = myCards.filter(n => n !== i);
-                } else if (myCards.length < 20) {
-                    this.classList.add('mine');
-                    myCards.push(i);
-                }
-            };
-            sGrid.appendChild(div);
+    function increasePrice() {
+        if (price < 20) {
+            price += 2;
+            document.getElementById('currentPrice').innerText = price;
+            document.getElementById('ticketPrice').innerText = price;
         }
+    }
 
-        let timer = setInterval(() => {
-            timeLeft--;
-            document.getElementById('seconds').innerText = timeLeft;
-            if (timeLeft <= 0) { clearInterval(timer); startGame(); }
-        }, 1000);
-
-        function startGame() {
-            if (myCards.length === 0) myCards.push(Math.floor(Math.random() * 100) + 1);
-            document.getElementById('selection-screen').style.display = 'none';
-            document.getElementById('game-screen').style.display = 'block';
+    function selectTicket(num, element) {
+        if (balance >= price) {
+            balance -= price;
+            selectedTickets.push(num);
+            element.classList.add('selected');
+            updateBalance();
             
-            const container = document.getElementById('boards-container');
-            container.innerHTML = "";
-            
-            // Kartellaa Kee Qofti akka mul'atu (Mana hin mul'atu)
-            for(let i=1; i<=100; i++) {
-                if (myCards.includes(i)) {
-                    const card = document.createElement('div');
-                    card.className = 'mini-card';
-                    card.innerHTML = `<div style="font-size:10px; color:var(--gold); margin-bottom:5px;">KEETII #${i}</div><div class="grid" id="grid-${i}"></div>`;
-                    container.appendChild(card);
-                    generateGrid(i, true);
-                } else {
-                    generateGrid(i, false); // Bilisaan duubatti hojjeta
-                }
+            // Fakeenyaaf: Yoo tikeetii "8" filatte injifatte haa jannu
+            if (num === 8) {
+                let winAmount = price * 80;
+                balance += winAmount;
+                element.classList.remove('selected');
+                element.classList.add('winner');
+                alert("Baay'ee namatti tola! " + winAmount + " ETB injifatteetta!");
+                updateBalance();
             }
-            runEngine();
+        } else {
+            alert("Qarshii gahaa hin qabdu!");
         }
+    }
 
-        function generateGrid(id, visible) {
-            const grid = visible ? document.getElementById(`grid-${id}`) : null;
-            const cells = [];
-            for (let i = 0; i < 25; i++) {
-                const isFree = (i === 12);
-                const val = Math.floor(Math.random() * 75) + 1;
-                const cellData = { marked: isFree, val: isFree ? 0 : val, el: null };
-                if (visible) {
-                    const div = document.createElement('div');
-                    div.className = isFree ? 'cell marked' : 'cell';
-                    div.innerText = isFree ? "F" : val;
-                    grid.appendChild(div);
-                    cellData.el = div;
-                }
-                cells.push(cellData);
-            }
-            gameGrids[id] = cells;
-        }
+    function updateBalance() {
+        document.getElementById('balanceDisplay').innerText = balance.toLocaleString() + ".00 ETB";
+        // Asitti LocalStorage fayyadamnee balance akka hin banne gochuu dandeenya
+        localStorage.setItem('bingoBalance', balance);
+    }
+</script>
 
-        function runEngine() {
-            let called = [];
-            const engine = setInterval(() => {
-                if (isBingo) { clearInterval(engine); return; }
-                let n;
-                do { n = Math.floor(Math.random() * 75) + 1; } while (called.includes(n));
-                called.push(n);
-                document.getElementById('caller').innerText = n;
-
-                for (let id in gameGrids) {
-                    gameGrids[id].forEach(c => {
-                        if (c.val === n) { c.marked = true; if(c.el) c.el.classList.add('marked'); }
-                    });
-                }
-                checkWinner();
-            }, 2000);
-        }
-
-        function checkWinner() {
-            for (let id in gameGrids) {
-                const cells = gameGrids[id];
-                for (let r = 0; r < 5; r++) {
-                    if ([cells[r*5], cells[r*5+1], cells[r*5+2], cells[r*5+3], cells[r*5+4]].every(c => c.marked)) {
-                        isBingo = true;
-                        showResult(id);
-                        return;
-                    }
-                }
-            }
-        }
-
-        function showResult(id) {
-            const overlay = document.getElementById('overlay');
-            overlay.style.display = 'flex';
-            const isMine = myCards.includes(Number(id));
-            
-            document.getElementById('win-msg').innerHTML = `
-                <h1 style="color:${isMine?'var(--gold)':'white'}">BINGO!</h1>
-                <div style="font-size:80px; font-weight:900; color:var(--red);">#${id}</div>
-            `;
-
-            setTimeout(() => location.reload(), 2000);
-        }
-    </script>
 </body>
 </html>
