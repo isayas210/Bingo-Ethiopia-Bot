@@ -5,37 +5,120 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bingo Ethio</title>
     <style>
-        :root { --bg: #0b0e11; --card: #1e2329; --primary: #fcd535; --green: #0ecb81; --text: #ffffff; }
-        body { background-color: var(--bg); color: var(--text); font-family: sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; }
-        
-        /* Header - Balance fi Maqaa */
+        :root {
+            --bg: #0b0e11;
+            --card: #1e2329;
+            --primary: #fcd535;
+            --green: #0ecb81;
+            --text: #ffffff;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            user-select: none;
+        }
+
+        /* Header Section */
         .header {
-            width: 100%; padding: 15px; display: flex; justify-content: space-between; align-items: center;
-            background: #161a1e; position: sticky; top: 0; z-index: 1000; border-bottom: 1px solid #333; box-sizing: border-box;
+            width: 100%;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #161a1e;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            border-bottom: 1px solid #333;
+            box-sizing: border-box;
         }
-        .logo { font-size: 20px; font-weight: bold; color: var(--primary); }
-        .balance { border: 1px solid var(--green); color: var(--green); padding: 5px 12px; border-radius: 5px; font-weight: bold; }
 
-        /* Bingo Grid */
+        .logo {
+            font-size: 20px;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .balance-box {
+            border: 1px solid var(--green);
+            color: var(--green);
+            padding: 5px 12px;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        /* Bingo Grid (1-100) */
         .grid {
-            display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; padding: 15px;
-            width: 100%; max-width: 450px; box-sizing: border-box; margin-bottom: 100px;
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 6px;
+            padding: 15px;
+            width: 100%;
+            max-width: 450px;
+            box-sizing: border-box;
+            margin-bottom: 100px;
         }
-        .cell {
-            background: var(--card); aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center;
-            border-radius: 4px; font-size: 15px; font-weight: bold; cursor: pointer; border: 1px solid #2b2f36;
-        }
-        .selected { background: var(--primary) !important; color: #000; }
-        .winner { background: var(--green) !important; box-shadow: 0 0 15px var(--green); color: #fff; }
 
-        /* Controls */
-        .controls {
-            position: fixed; bottom: 0; width: 100%; background: #161a1e; padding: 15px 20px;
-            display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #333; box-sizing: border-box;
+        .cell {
+            background: var(--card);
+            aspect-ratio: 1/1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            border: 1px solid #2b2f36;
+            transition: 0.2s;
         }
+
+        /* Halluuwwan */
+        .selected { background: var(--primary) !important; color: #000; }
+        .winner { 
+            background: var(--green) !important; 
+            box-shadow: 0 0 15px var(--green); 
+            color: #fff;
+            transform: scale(1.05);
+        }
+
+        /* Controls Section */
+        .controls {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            background: #161a1e;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid #333;
+            box-sizing: border-box;
+        }
+
+        .price-info { font-size: 16px; }
+        .price-val { color: var(--primary); font-weight: bold; font-size: 20px; }
+
         .btn-plus {
-            background: var(--primary); border: none; width: 50px; height: 50px; border-radius: 50%;
-            font-size: 28px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center;
+            background: var(--primary);
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
     </style>
 </head>
@@ -43,53 +126,72 @@
 
 <div class="header">
     <div class="logo">BingoEthio</div>
-    <div class="balance" id="balDisp">1,540.00 ETB</div>
+    <div class="balance-box" id="balDisp">0.00 ETB</div>
 </div>
 
-<div class="grid" id="grid"></div>
+<div class="grid" id="bingoGrid"></div>
 
 <div class="controls">
-    <div>Gatii: <span id="priceDisp" style="color:var(--primary); font-weight:bold; font-size:20px;">2</span> ETB</div>
+    <div class="price-info">Tikeetii: <span class="price-val" id="priceDisp">2</span> ETB</div>
     <button class="btn-plus" onclick="incPrice()">+</button>
 </div>
 
 <script>
-    let balance = parseFloat(localStorage.getItem('b_bal')) || 1540;
+    // System herregaa fi tikeetii
+    let balance = parseFloat(localStorage.getItem('bingo_bal')) || 1540;
     let price = 2;
-    const grid = document.getElementById('grid');
+    const grid = document.getElementById('bingoGrid');
 
-    function update() {
+    function updateUI() {
         document.getElementById('balDisp').innerText = balance.toLocaleString() + ".00 ETB";
         document.getElementById('priceDisp').innerText = price;
-        localStorage.setItem('b_bal', balance);
+        localStorage.setItem('bingo_bal', balance);
     }
 
-    function incPrice() { price += 2; update(); }
+    // Gatii dabaluu (+)
+    function incPrice() {
+        price += 2;
+        updateUI();
+    }
 
+    // Grid uumuu (1-100)
     for (let i = 1; i <= 100; i++) {
-        const div = document.createElement('div');
-        div.className = 'cell';
-        div.innerText = i;
-        div.onclick = () => {
-            if (balance < price) return alert("Qarshii gahaa hin qabdu!");
-            balance -= price;
-            div.classList.add('selected');
-            update();
-            
-            // Logic Injifannoo (x80)
-            if ([8, 13, 33, 52].includes(i)) {
-                setTimeout(() => {
-                    balance += (price * 80);
-                    div.classList.replace('selected', 'winner');
-                    update();
-                }, 600);
-            } else {
-                setTimeout(() => div.classList.remove('selected'), 600);
-            }
-        };
-        grid.appendChild(div);
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.innerText = i;
+        cell.onclick = () => playBingo(i, cell);
+        grid.appendChild(cell);
     }
-    update();
+
+    function playBingo(num, element) {
+        if (balance < price) {
+            alert("Qarshii gahaa hin qabdu!");
+            return;
+        }
+
+        // Tikeetii kutuu
+        balance -= price;
+        element.classList.add('selected');
+        updateUI();
+
+        // Logic Injifannoo (x80) - Fakkeenyaaf
+        const winners = [8, 13, 33, 42, 55, 77];
+
+        setTimeout(() => {
+            if (winners.includes(num)) {
+                let winAmt = price * 80;
+                balance += winAmt;
+                element.classList.replace('selected', 'winner');
+                updateUI();
+            } else {
+                // Yoo injifachuu baate halluu qulqulleessi
+                setTimeout(() => element.classList.remove('selected'), 500);
+            }
+        }, 600);
+    }
+
+    updateUI();
 </script>
+
 </body>
 </html>
