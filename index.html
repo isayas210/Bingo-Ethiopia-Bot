@@ -7,66 +7,73 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root { --gold: #ffcc00; --dark: #050505; --green: #2ecc71; --red: #ff4757; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--dark); color: white; margin: 0; text-align: center; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--dark); color: white; margin: 0; text-align: center; overflow-x: hidden; }
+        
+        /* Header & Balance */
         .header { background: #111; padding: 10px; border-bottom: 2px solid var(--gold); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; }
         .bal-box { background: rgba(46, 204, 113, 0.1); padding: 5px 10px; border-radius: 10px; border: 1px solid var(--green); }
         .bal-amt { color: var(--green); font-weight: 900; }
+
+        /* Caller & History */
+        .caller-area { background: #000; padding: 15px; border-bottom: 2px solid var(--gold); }
+        .big-call { font-size: 50px; color: var(--gold); font-weight: 900; text-shadow: 0 0 10px rgba(255,204,0,0.5); }
+        .history { display: flex; gap: 5px; justify-content: center; overflow-x: auto; padding: 5px; font-size: 12px; color: #888; }
         
-        /* BINGO Labels */
-        .bingo-head { display: grid; grid-template-columns: repeat(5, 1fr); color: var(--gold); font-weight: bold; font-size: 10px; margin-bottom: 2px; }
-        
-        /* Game Grid */
-        .boards-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 10px; }
-        .mini-card { background: #151515; padding: 5px; border-radius: 8px; border: 1px solid #333; position: relative; }
-        .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; }
-        .cell { background: #222; aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 2px; }
+        /* Cards Area */
+        .boards-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 10px; }
+        .mini-card { background: #151515; padding: 5px; border-radius: 8px; border: 1px solid #333; }
+        .bingo-head { display: grid; grid-template-columns: repeat(5, 1fr); color: var(--gold); font-weight: bold; font-size: 12px; }
+        .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; margin-top: 5px; }
+        .cell { background: #222; aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; font-size: 11px; border-radius: 3px; }
         .marked { background: var(--green) !important; color: black; font-weight: bold; }
         
-        /* Winner Styles */
-        .win-id { color: var(--red); font-weight: bold; font-size: 18px; }
-        .win-money { color: var(--green); font-weight: bold; font-size: 20px; }
-        .caller-bar { background: #000; padding: 10px; font-size: 45px; color: var(--gold); font-weight: 900; }
-        
-        #overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; justify-content: center; align-items: center; flex-direction: column; }
+        /* Win Overlays */
+        #overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:2000; justify-content:center; align-items:center; flex-direction:column; }
+        .win-card-id { color: var(--red); font-size: 35px; font-weight: 900; }
+        .win-money { color: var(--green); font-size: 30px; font-weight: 900; }
     </style>
 </head>
 <body>
 
     <div class="header">
         <div class="bal-box">
-            <span class="bal-amt">2,500.00 ETB</span>
+            <span class="bal-amt" id="display-bal">2,500.00 ETB</span>
         </div>
-        <div id="status" style="color:var(--gold); font-size: 14px;">Tikeetii 100nuu Hirmaachaa Jiru</div>
+        <div id="status" style="color:var(--gold); font-size: 12px;">Tikeetii 100nuu Hirmaachaa Jiru</div>
     </div>
 
     <div id="selection-screen">
-        <div style="padding: 20px; color: var(--gold);">Taphi Ofumaan Jalqaba: <span id="seconds">10</span>s</div>
-        <p>Kaartaawwan kee 20 filadhu, kan hafe 80 manaaf ta'u.</p>
-        <div id="s-grid" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; padding: 10px; max-height: 400px; overflow-y: auto;"></div>
+        <div style="padding:20px; color:var(--gold); font-size:20px; font-weight:bold;">Taphi Ofumaan Jalqaba: <span id="seconds">10</span>s</div>
+        <p style="font-size:12px; color:#aaa;">Kaartaa kee filadhu. Kaartaa tokkoon 50 ETB.</p>
+        <div id="s-grid" style="display:grid; grid-template-columns:repeat(5, 1fr); gap:6px; padding:10px; max-height:450px; overflow-y:auto;"></div>
     </div>
 
     <div id="game-screen" style="display:none;">
-        <div class="caller-bar" id="caller">...</div>
+        <div class="caller-area">
+            <div class="big-call" id="caller">...</div>
+            <div class="history" id="call-history"></div>
+        </div>
         <div class="boards-grid" id="boards-container"></div>
     </div>
 
     <div id="overlay">
-        <div id="win-msg"></div>
-        <button onclick="location.reload()" style="margin-top:20px; padding:10px 20px; background:var(--gold); border:none; border-radius:5px; font-weight:bold;">Taphata Haaraa</button>
+        <div id="win-msg" style="text-align:center;"></div>
+        <button onclick="location.reload()" style="margin-top:30px; padding:12px 25px; background:var(--gold); border:none; border-radius:8px; font-weight:bold; cursor:pointer;">TAPHA HAARAA</button>
     </div>
 
     <script>
         const tele = window.Telegram.WebApp;
         let myCards = [];
-        let allCards = [];
+        let balance = 2500;
         let timeLeft = 10;
         let isBingo = false;
+        let calledNumbers = [];
 
         // 1. Tikeetii 100 uumuu
         const sGrid = document.getElementById('s-grid');
         for (let i = 1; i <= 100; i++) {
             const div = document.createElement('div');
-            div.style = "background:#222; padding:10px; border-radius:5px; border:1px solid #444;";
+            div.style = "background:#222; padding:12px 0; border-radius:8px; border:1px solid #444; cursor:pointer;";
             div.innerText = i;
             div.onclick = function() {
                 if (this.style.background === 'rgb(46, 204, 113)') {
@@ -76,7 +83,6 @@
                     this.style.background = '#2ecc71';
                     myCards.push(i);
                 }
-                document.getElementById('status').innerText = `Filatame: ${myCards.length}/20`;
             };
             sGrid.appendChild(div);
         }
@@ -89,27 +95,38 @@
         }, 1000);
 
         function startGame() {
+            if (myCards.length === 0) myCards.push(Math.floor(Math.random() * 100) + 1);
+            
+            // Balance hir'isuu (50 ETB per card)
+            balance -= (myCards.length * 50);
+            document.getElementById('display-bal').innerText = balance.toFixed(2) + " ETB";
+
             document.getElementById('selection-screen').style.display = 'none';
             document.getElementById('game-screen').style.display = 'block';
             
+            // Maamilli kaartaa isaa qofa akka argu
             const container = document.getElementById('boards-container');
-            for (let i = 1; i <= 100; i++) {
+            myCards.forEach(id => {
                 const card = document.createElement('div');
                 card.className = 'mini-card';
-                card.id = `card-${i}`;
-                let label = myCards.includes(i) ? `<span style="color:var(--green)">KEETII #${i}</span>` : `MANAA #${i}`;
                 card.innerHTML = `<div class="bingo-head"><span>B</span><span>I</span><span>N</span><span>G</span><span>O</span></div>
-                                 <div style="font-size:9px; margin-bottom:3px;">${label}</div>
-                                 <div class="grid" id="grid-${i}"></div>`;
+                                 <div style="font-size:10px; color:var(--gold); margin:4px 0;">KAARTAA KEETII #${id}</div>
+                                 <div class="grid" id="grid-${id}"></div>`;
                 container.appendChild(card);
-                generateGrid(i);
-            }
+                generateGrid(id);
+            });
+            
+            // Kaartaawwan manaas duubatti ni uumamu (Hirmaannaa 100 mirkaneessuuf)
+            for(let i=1; i<=100; i++) { if(!myCards.includes(i)) generateSilentGrid(i); }
+            
             runEngine();
         }
 
+        const gameGrids = {};
         function generateGrid(id) {
             const grid = document.getElementById(`grid-${id}`);
             const ranges = [[1,15], [16,30], [31,45], [46,60], [61,75]];
+            const cells = [];
             for (let r = 0; r < 5; r++) {
                 for (let c = 0; c < 5; c++) {
                     const cell = document.createElement('div');
@@ -120,45 +137,86 @@
                         cell.innerText = val; cell.setAttribute('data-val', val);
                     }
                     grid.appendChild(cell);
+                    cells.push(cell);
                 }
             }
+            gameGrids[id] = cells;
+        }
+
+        function generateSilentGrid(id) {
+            const ranges = [[1,15], [16,30], [31,45], [46,60], [61,75]];
+            const cells = [];
+            for (let r = 0; r < 5; r++) {
+                for (let c = 0; c < 5; c++) {
+                    const cellData = { marked: (r===2 && c===2), val: 0 };
+                    if (!(r===2 && c===2)) {
+                        cellData.val = Math.floor(Math.random() * (ranges[c][1] - ranges[c][0] + 1)) + ranges[c][0];
+                    }
+                    cells.push(cellData);
+                }
+            }
+            gameGrids[id] = cells;
         }
 
         function runEngine() {
-            let called = [];
             const interval = setInterval(() => {
                 if (isBingo) { clearInterval(interval); return; }
                 let n;
-                do { n = Math.floor(Math.random() * 75) + 1; } while (called.includes(n));
-                called.push(n);
-                document.getElementById('caller').innerText = n;
-                document.querySelectorAll(`.cell[data-val="${n}"]`).forEach(el => {
-                    el.classList.add('marked');
-                    checkBingo();
-                });
-            }, 2000);
+                do { n = Math.floor(Math.random() * 75) + 1; } while (calledNumbers.includes(n));
+                calledNumbers.push(n);
+                
+                // Qubee waamuu (B-I-N-G-O)
+                let letter = "B";
+                if(n > 15) letter = "I"; if(n > 30) letter = "N"; if(n > 45) letter = "G"; if(n > 60) letter = "O";
+                document.getElementById('caller').innerText = `${letter}${n}`;
+                
+                // History
+                const hist = document.getElementById('call-history');
+                hist.innerHTML = `<span>${letter}${n}</span> ` + hist.innerHTML;
+
+                // Mark Cells
+                for (let id in gameGrids) {
+                    gameGrids[id].forEach(cell => {
+                        if (cell.getAttribute && cell.getAttribute('data-val') == n) cell.classList.add('marked');
+                        else if (cell.val == n) cell.marked = true;
+                    });
+                }
+                checkBingo();
+            }, 2500);
         }
 
         function checkBingo() {
-            for (let i = 1; i <= 100; i++) {
-                const cells = Array.from(document.getElementById(`grid-${i}`).children);
-                const row1 = [cells[0], cells[1], cells[2], cells[3], cells[4]];
-                
-                if (row1.every(c => c.classList.contains('marked')) && !isBingo) {
-                    isBingo = true;
-                    const overlay = document.getElementById('overlay');
-                    const msg = document.getElementById('win-msg');
-                    overlay.style.display = 'flex';
-                    
-                    if (myCards.includes(i)) {
-                        msg.innerHTML = `<h1>BINGO!</h1><p>Kaartaa Lakkoofsa <span class="win-id">#${i}</span></p>
-                                         <p>Badhaasa: <span class="win-money">1,500.00 ETB</span></p>`;
-                    } else {
-                        msg.innerHTML = `<h1>BINGO!</h1><p>Injifataan Kaartaa Manaa <br><span style="font-size:30px;">#${i}</span></p>`;
+            for (let id in gameGrids) {
+                const cells = gameGrids[id];
+                // Dalga (Horizontal rows: 0-4, 5-9, 10-14, 15-19, 20-24)
+                for (let r = 0; r < 5; r++) {
+                    let row = [cells[r*5], cells[r*5+1], cells[r*5+2], cells[r*5+3], cells[r*5+4]];
+                    if (row.every(c => c.classList ? c.classList.contains('marked') : c.marked)) {
+                        isBingo = true;
+                        showWinner(id);
+                        return;
                     }
-                    tele.HapticFeedback.notificationOccurred('success');
                 }
             }
+        }
+
+        function showWinner(id) {
+            const overlay = document.getElementById('overlay');
+            const msg = document.getElementById('win-msg');
+            overlay.style.display = 'flex';
+            
+            if (myCards.includes(Number(id))) {
+                let winAmt = myCards.length * 100; // Fake prize logic
+                balance += winAmt;
+                msg.innerHTML = `<h1 style="color:var(--gold)">BINGO!</h1>
+                                 <p>Kaartaa Lakkoofsa <br><span class="win-card-id">#${id}</span></p>
+                                 <p>Badhaasa: <br><span class="win-money">${winAmt} ETB</span></p>`;
+            } else {
+                msg.innerHTML = `<h1 style="color:var(--red)">MANAITU INJIFATE!</h1>
+                                 <p>Kaartaa Lakkoofsa <br><span style="font-size:40px;">#${id}</span></p>
+                                 <p style="color:#888;">Maamilarra qarshiin murameera.</p>`;
+            }
+            tele.HapticFeedback.notificationOccurred('success');
         }
     </script>
 </body>
