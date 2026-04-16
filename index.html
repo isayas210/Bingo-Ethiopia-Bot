@@ -6,16 +6,20 @@
     <title>Bingo Ethio 24/7</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        :root { --gold: #ffcc00; --dark: #050505; --green: #2ecc71; --red: #ff4757; --white: #ffffff; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--dark); color: var(--white); margin: 0; text-align: center; }
+        :root { --gold: #ffcc00; --dark: #050505; --green: #2ecc71; --red: #ff4757; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--dark); color: white; margin: 0; text-align: center; }
         .header { background: #111; padding: 10px; border-bottom: 2px solid var(--gold); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; }
         .bal-box { background: rgba(46, 204, 113, 0.1); padding: 5px 10px; border-radius: 10px; border: 1px solid var(--green); }
         .bal-amt { color: var(--green); font-weight: 900; }
-        
-        /* Caller & History */
+
+        /* Bet Selection */
+        .bet-container { display: flex; justify-content: center; gap: 10px; padding: 15px; background: #1a1a1a; }
+        .bet-btn { background: #333; color: white; border: 1px solid var(--gold); padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .bet-btn.active { background: var(--gold); color: black; }
+
         .caller-area { background: #000; padding: 15px; border-bottom: 2px solid var(--gold); }
         .big-call { font-size: 50px; color: var(--gold); font-weight: 900; }
-        .history { display: flex; gap: 8px; justify-content: center; overflow-x: auto; padding: 10px; font-size: 14px; color: #888; border-bottom: 1px solid #333; }
+        .history { display: flex; gap: 8px; justify-content: center; overflow-x: auto; padding: 10px; color: #888; }
 
         .boards-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 10px; }
         .mini-card { background: #151515; padding: 5px; border-radius: 8px; border: 1px solid #333; }
@@ -23,9 +27,8 @@
         .cell { background: #222; aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; font-size: 11px; }
         .marked { background: var(--green) !important; color: black; font-weight: bold; }
 
-        /* Result Overlay */
         #overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:2000; justify-content:center; align-items:center; flex-direction:column; }
-        .win-id { color: var(--red); font-size: 60px; font-weight: 900; margin: 10px 0; }
+        .win-id { color: var(--red); font-size: 60px; font-weight: 900; }
         .win-money { color: var(--green); font-size: 35px; font-weight: bold; }
     </style>
 </head>
@@ -35,37 +38,49 @@
         <div class="bal-box">
             <span class="bal-amt" id="display-bal">2,500.00 ETB</span>
         </div>
-        <div style="color:var(--gold); font-size: 14px;">Tikeetii 100nuu Hirmaachaa Jiru</div>
+        <div style="color:var(--gold); font-size: 14px;">Filatame: <span id="card-count">0</span>/20</div>
     </div>
 
     <div id="selection-screen">
-        <div style="padding:20px; color:var(--gold); font-size:20px;">Taphi Ofumaan Jalqaba: <span id="seconds">10</span>s</div>
-        <div id="s-grid" style="display:grid; grid-template-columns:repeat(5, 1fr); gap:5px; padding:10px; max-height:450px; overflow-y:auto;"></div>
+        <div class="bet-container">
+            <span style="margin-top:8px;">Qarshii: </span>
+            <button class="bet-btn active" onclick="setBet(2, this)">2</button>
+            <button class="bet-btn" onclick="setBet(4, this)">4</button>
+            <button class="bet-btn" onclick="setBet(10, this)">10</button>
+        </div>
+        <div style="padding:10px; color:var(--gold);">Taphi Ofumaan Jalqaba: <span id="seconds">15</span>s</div>
+        <div id="s-grid" style="display:grid; grid-template-columns:repeat(5, 1fr); gap:5px; padding:10px; max-height:400px; overflow-y:auto;"></div>
     </div>
 
     <div id="game-screen" style="display:none;">
         <div class="caller-area">
             <div class="big-call" id="caller">...</div>
-            <div class="history" id="call-history"></div>
+            <div id="call-history" class="history"></div>
         </div>
         <div class="boards-grid" id="boards-container"></div>
     </div>
 
     <div id="overlay">
         <div id="win-msg" style="text-align:center;"></div>
-        <button onclick="location.reload()" style="margin-top:30px; padding:15px 30px; background:var(--gold); border:none; border-radius:8px; font-weight:bold;">TAPHATA HAARAA</button>
+        <button onclick="location.reload()" style="margin-top:30px; padding:15px 30px; background:var(--gold); border:none; border-radius:8px; font-weight:bold;">DEEBI'I</button>
     </div>
 
     <script>
         const tele = window.Telegram.WebApp;
         let myCards = [];
         let balance = 2500;
-        let timeLeft = 10;
+        let currentBet = 2; // Default bet
+        let timeLeft = 15;
         let isBingo = false;
         let calledNums = [];
         const gameGrids = {};
 
-        // Kaartaa 100 uumuu
+        function setBet(amt, btn) {
+            currentBet = amt;
+            document.querySelectorAll('.bet-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
+
         const sGrid = document.getElementById('s-grid');
         for (let i = 1; i <= 100; i++) {
             const div = document.createElement('div');
@@ -79,6 +94,7 @@
                     this.style.background = '#2ecc71';
                     myCards.push(i);
                 }
+                document.getElementById('card-count').innerText = myCards.length;
             };
             sGrid.appendChild(div);
         }
@@ -91,7 +107,10 @@
 
         function startGame() {
             if (myCards.length === 0) myCards.push(Math.floor(Math.random() * 100) + 1);
-            balance -= (myCards.length * 50);
+            
+            // Qarshii hir'isuu (Bet x Cards)
+            let totalCost = currentBet * myCards.length;
+            balance -= totalCost;
             document.getElementById('display-bal').innerText = balance.toFixed(2) + " ETB";
 
             document.getElementById('selection-screen').style.display = 'none';
@@ -102,7 +121,7 @@
                 if (myCards.includes(i)) {
                     const card = document.createElement('div');
                     card.className = 'mini-card';
-                    card.innerHTML = `<div style="font-size:10px; color:var(--gold);">KAARTAA KEETII #${i}</div><div class="grid" id="grid-${i}"></div>`;
+                    card.innerHTML = `<div style="font-size:10px; color:var(--gold);">#${i} - ${currentBet} ETB</div><div class="grid" id="grid-${i}"></div>`;
                     container.appendChild(card);
                     generateGrid(i, true);
                 } else {
@@ -185,20 +204,19 @@
             const msg = document.getElementById('win-msg');
             overlay.style.display = 'flex';
             
-            // Kan manaa yoo ta'e: Barreeffama "Mana" dhiisee lakkoofsa qofa fida
             if (myCards.includes(Number(id))) {
-                let winAmt = myCards.length * 100;
+                // Injifannoo: (Bet x 80) fkn. 2 * 80 = 160 ETB
+                let winAmt = currentBet * 80; 
                 msg.innerHTML = `<h1 style="color:var(--gold)">BINGO!</h1>
-                                 <p style="font-size:20px;">Kaartaa Lakkoofsa</p>
+                                 <p style="font-size:20px;">Kaartaa Kee</p>
                                  <div class="win-id">#${id}</div>
-                                 <div class="win-money">${winAmt} ETB</div>`;
+                                 <div class="win-money">+${winAmt} ETB</div>`;
             } else {
                 msg.innerHTML = `<h1 style="color:var(--red)">BINGO!</h1>
                                  <p style="font-size:20px;">Kaartaa Lakkoofsa</p>
                                  <div class="win-id">#${id}</div>
-                                 <p style="color:#888;">Tapha kanaan hin injifanne.</p>`;
+                                 <p style="color:#888;">Manaatu injifate.</p>`;
             }
-            tele.HapticFeedback.notificationOccurred('success');
         }
     </script>
 </body>
