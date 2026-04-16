@@ -1,7 +1,9 @@
 import logging
 from aiogram import Bot, Dispatcher, executor
 
+# Token kee isa sirrii
 API_TOKEN = '8692359063:AAHteqfebC808tTmj6qvIdjiVJIXoXRTf4c'
+
 logging.basicConfig(level=logging.INFO)
 
 bot = Bot(token=API_TOKEN)
@@ -13,5 +15,5 @@ async def on_startup(_):
     print("Bot-ni Bingo hojii jalqabeera!")
 
 if __name__ == '__main__':
-    # skip_updates=True ergaawwan moofaa conflict uuman ni darba
+    # skip_updates=True ergaawwan conflict uuman bira darba
     executor.start_polling(dp, on_startup=on_startup, skip_updates=True)
