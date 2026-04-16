@@ -7,29 +7,31 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root { --gold: #ffcc00; --dark: #050505; --green: #2ecc71; --red: #ff4757; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--dark); color: white; margin: 0; text-align: center; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--dark); color: white; margin: 0; text-align: center; user-select: none; }
         .header { background: #111; padding: 10px; border-bottom: 2px solid var(--gold); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; }
         .bal-box { background: rgba(46, 204, 113, 0.1); padding: 5px 10px; border-radius: 10px; border: 1px solid var(--green); }
         .bal-amt { color: var(--green); font-weight: 900; }
+        
+        /* Bet Control with + */
+        .bet-control { display: flex; align-items: center; justify-content: center; gap: 15px; padding: 15px; background: #151515; }
+        .bet-display { background: #222; border: 1px solid var(--gold); padding: 8px 20px; border-radius: 5px; font-size: 20px; font-weight: bold; }
+        .plus-btn { background: var(--gold); color: black; border: none; width: 45px; height: 45px; border-radius: 50%; font-size: 28px; font-weight: bold; cursor: pointer; }
 
-        /* Bet Selection */
-        .bet-container { display: flex; justify-content: center; gap: 10px; padding: 15px; background: #1a1a1a; }
-        .bet-btn { background: #333; color: white; border: 1px solid var(--gold); padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
-        .bet-btn.active { background: var(--gold); color: black; }
+        .selection-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; padding: 10px; max-height: 400px; overflow-y: auto; }
+        .card-opt { background: #222; padding: 12px 0; border-radius: 8px; border: 1px solid #444; }
+        .card-opt.selected { background: var(--green); color: black; font-weight: bold; }
 
         .caller-area { background: #000; padding: 15px; border-bottom: 2px solid var(--gold); }
-        .big-call { font-size: 50px; color: var(--gold); font-weight: 900; }
-        .history { display: flex; gap: 8px; justify-content: center; overflow-x: auto; padding: 10px; color: #888; }
+        .big-call { font-size: 55px; color: var(--gold); font-weight: 900; }
+        .history { display: flex; gap: 8px; justify-content: center; overflow-x: auto; padding: 10px; color: #777; }
 
         .boards-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 10px; }
-        .mini-card { background: #151515; padding: 5px; border-radius: 8px; border: 1px solid #333; }
+        .mini-card { background: #111; padding: 5px; border-radius: 8px; border: 1px solid #333; }
         .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; }
         .cell { background: #222; aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; font-size: 11px; }
         .marked { background: var(--green) !important; color: black; font-weight: bold; }
 
-        #overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:2000; justify-content:center; align-items:center; flex-direction:column; }
-        .win-id { color: var(--red); font-size: 60px; font-weight: 900; }
-        .win-money { color: var(--green); font-size: 35px; font-weight: bold; }
+        #overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 2000; justify-content: center; align-items: center; flex-direction: column; }
     </style>
 </head>
 <body>
@@ -42,14 +44,13 @@
     </div>
 
     <div id="selection-screen">
-        <div class="bet-container">
-            <span style="margin-top:8px;">Qarshii: </span>
-            <button class="bet-btn active" onclick="setBet(2, this)">2</button>
-            <button class="bet-btn" onclick="setBet(4, this)">4</button>
-            <button class="bet-btn" onclick="setBet(10, this)">10</button>
+        <div class="bet-control">
+            <span style="color:#aaa;">BET:</span>
+            <div class="bet-display" id="bet-val">2</div>
+            <button class="plus-btn" onclick="nextBet()">+</button>
         </div>
         <div style="padding:10px; color:var(--gold);">Taphi Ofumaan Jalqaba: <span id="seconds">15</span>s</div>
-        <div id="s-grid" style="display:grid; grid-template-columns:repeat(5, 1fr); gap:5px; padding:10px; max-height:400px; overflow-y:auto;"></div>
+        <div class="selection-grid" id="s-grid"></div>
     </div>
 
     <div id="game-screen" style="display:none;">
@@ -62,36 +63,39 @@
 
     <div id="overlay">
         <div id="win-msg" style="text-align:center;"></div>
-        <button onclick="location.reload()" style="margin-top:30px; padding:15px 30px; background:var(--gold); border:none; border-radius:8px; font-weight:bold;">DEEBI'I</button>
+        <p style="color:#666; margin-top:20px;">Sekondii 2 booda ofumaan deebi'a...</p>
     </div>
 
     <script>
         const tele = window.Telegram.WebApp;
         let myCards = [];
         let balance = 2500;
-        let currentBet = 2; // Default bet
+        let currentBet = 2; 
+        const betLevels = [2, 4, 10, 20];
+        let betIdx = 0;
         let timeLeft = 15;
         let isBingo = false;
         let calledNums = [];
-        const gameGrids = {};
+        let gameGrids = {};
+        let timerInterval;
 
-        function setBet(amt, btn) {
-            currentBet = amt;
-            document.querySelectorAll('.bet-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
+        function nextBet() {
+            betIdx = (betIdx + 1) % betLevels.length;
+            currentBet = betLevels[betIdx];
+            document.getElementById('bet-val').innerText = currentBet;
         }
 
         const sGrid = document.getElementById('s-grid');
         for (let i = 1; i <= 100; i++) {
             const div = document.createElement('div');
-            div.style = "background:#222; padding:12px 0; border-radius:5px; border:1px solid #444;";
+            div.className = 'card-opt';
             div.innerText = i;
             div.onclick = function() {
-                if (this.style.background === 'rgb(46, 204, 113)') {
-                    this.style.background = '#222';
+                if (this.classList.contains('selected')) {
+                    this.classList.remove('selected');
                     myCards = myCards.filter(n => n !== i);
                 } else if (myCards.length < 20) {
-                    this.style.background = '#2ecc71';
+                    this.classList.add('selected');
                     myCards.push(i);
                 }
                 document.getElementById('card-count').innerText = myCards.length;
@@ -99,61 +103,50 @@
             sGrid.appendChild(div);
         }
 
-        const timer = setInterval(() => {
-            timeLeft--;
-            document.getElementById('seconds').innerText = timeLeft;
-            if (timeLeft <= 0) { clearInterval(timer); startGame(); }
-        }, 1000);
+        function startTimer() {
+            timeLeft = 15;
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                document.getElementById('seconds').innerText = timeLeft;
+                if (timeLeft <= 0) { clearInterval(timerInterval); startGame(); }
+            }, 1000);
+        }
+        startTimer();
 
         function startGame() {
             if (myCards.length === 0) myCards.push(Math.floor(Math.random() * 100) + 1);
-            
-            // Qarshii hir'isuu (Bet x Cards)
-            let totalCost = currentBet * myCards.length;
-            balance -= totalCost;
+            balance -= (currentBet * myCards.length);
             document.getElementById('display-bal').innerText = balance.toFixed(2) + " ETB";
-
             document.getElementById('selection-screen').style.display = 'none';
             document.getElementById('game-screen').style.display = 'block';
             
             const container = document.getElementById('boards-container');
+            container.innerHTML = "";
             for(let i=1; i<=100; i++) {
-                if (myCards.includes(i)) {
-                    const card = document.createElement('div');
-                    card.className = 'mini-card';
-                    card.innerHTML = `<div style="font-size:10px; color:var(--gold);">#${i} - ${currentBet} ETB</div><div class="grid" id="grid-${i}"></div>`;
-                    container.appendChild(card);
-                    generateGrid(i, true);
-                } else {
-                    generateGrid(i, false);
-                }
+                const isMine = myCards.includes(i);
+                const card = document.createElement('div');
+                card.className = 'mini-card';
+                card.innerHTML = `<div style="font-size:9px; color:${isMine?'var(--gold)':'#555'};">${isMine?'KEETII':'MANAA'} #${i}</div><div class="grid" id="grid-${i}"></div>`;
+                container.appendChild(card);
+                generateGrid(i);
             }
             runEngine();
         }
 
-        function generateGrid(id, visible) {
-            const grid = visible ? document.getElementById(`grid-${id}`) : null;
+        function generateGrid(id) {
+            const grid = document.getElementById(`grid-${id}`);
             const ranges = [[1,15], [16,30], [31,45], [46,60], [61,75]];
             const cells = [];
             for (let r = 0; r < 5; r++) {
                 for (let c = 0; c < 5; c++) {
                     const cellData = { marked: (r===2 && c===2), val: 0, el: null };
-                    if (r === 2 && c === 2) { 
-                        if (visible) {
-                            const cell = document.createElement('div');
-                            cell.className = 'cell marked'; cell.innerText = "F";
-                            grid.appendChild(cell);
-                        }
-                    } else {
-                        const val = Math.floor(Math.random() * (ranges[c][1] - ranges[c][0] + 1)) + ranges[c][0];
-                        cellData.val = val;
-                        if (visible) {
-                            const cell = document.createElement('div');
-                            cell.className = 'cell'; cell.innerText = val;
-                            grid.appendChild(cell);
-                            cellData.el = cell;
-                        }
-                    }
+                    const val = Math.floor(Math.random() * (ranges[c][1] - ranges[c][0] + 1)) + ranges[c][0];
+                    cellData.val = (r===2 && c===2) ? 0 : val;
+                    const cell = document.createElement('div');
+                    cell.className = cellData.marked ? 'cell marked' : 'cell';
+                    cell.innerText = (r===2 && c===2) ? "F" : val;
+                    grid.appendChild(cell);
+                    cellData.el = cell;
                     cells.push(cellData);
                 }
             }
@@ -161,62 +154,62 @@
         }
 
         function runEngine() {
-            const interval = setInterval(() => {
-                if (isBingo) { clearInterval(interval); return; }
+            calledNums = [];
+            const engine = setInterval(() => {
+                if (isBingo) { clearInterval(engine); return; }
                 let n;
                 do { n = Math.floor(Math.random() * 75) + 1; } while (calledNums.includes(n));
                 calledNums.push(n);
-                
-                let letter = n <= 15 ? "B" : n <= 30 ? "I" : n <= 45 ? "N" : n <= 60 ? "G" : "O";
-                document.getElementById('caller').innerText = `${letter}${n}`;
-                
-                const hist = document.getElementById('call-history');
-                hist.innerHTML = `<span>${letter}${n}</span> ` + hist.innerHTML;
-
+                document.getElementById('caller').innerText = n;
                 for (let id in gameGrids) {
                     gameGrids[id].forEach(cell => {
-                        if (cell.val === n) {
-                            cell.marked = true;
-                            if (cell.el) cell.el.classList.add('marked');
-                        }
+                        if (cell.val === n) { cell.marked = true; cell.el.classList.add('marked'); }
                     });
                 }
-                checkBingo();
-            }, 2500);
+                checkWinner();
+            }, 2000);
         }
 
-        function checkBingo() {
+        function checkWinner() {
             for (let id in gameGrids) {
                 const cells = gameGrids[id];
                 for (let r = 0; r < 5; r++) {
-                    let row = [cells[r*5], cells[r*5+1], cells[r*5+2], cells[r*5+3], cells[r*5+4]];
-                    if (row.every(c => c.marked)) {
+                    if ([cells[r*5], cells[r*5+1], cells[r*5+2], cells[r*5+3], cells[r*5+4]].every(c => c.marked)) {
                         isBingo = true;
-                        showWinner(id);
+                        showResult(id);
                         return;
                     }
                 }
             }
         }
 
-        function showWinner(id) {
+        function showResult(id) {
             const overlay = document.getElementById('overlay');
             const msg = document.getElementById('win-msg');
             overlay.style.display = 'flex';
-            
             if (myCards.includes(Number(id))) {
-                // Injifannoo: (Bet x 80) fkn. 2 * 80 = 160 ETB
-                let winAmt = currentBet * 80; 
-                msg.innerHTML = `<h1 style="color:var(--gold)">BINGO!</h1>
-                                 <p style="font-size:20px;">Kaartaa Kee</p>
-                                 <div class="win-id">#${id}</div>
-                                 <div class="win-money">+${winAmt} ETB</div>`;
+                let winAmt = currentBet * 80;
+                balance += winAmt;
+                msg.innerHTML = `<h1 style="color:var(--gold)">BINGO!</h1><div style="color:var(--red); font-size:60px;">#${id}</div><div style="color:var(--green); font-size:40px;">+${winAmt} ETB</div>`;
             } else {
-                msg.innerHTML = `<h1 style="color:var(--red)">BINGO!</h1>
-                                 <p style="font-size:20px;">Kaartaa Lakkoofsa</p>
-                                 <div class="win-id">#${id}</div>
-                                 <p style="color:#888;">Manaatu injifate.</p>`;
+                msg.innerHTML = `<h1 style="color:white">BINGO!</h1><div style="color:var(--red); font-size:60px;">#${id}</div><p>Manaatu injifate</p>`;
             }
+            setTimeout(() => {
+                overlay.style.display = 'none';
+                document.getElementById('game-screen').style.display = 'none';
+                document.getElementById('selection-screen').style.display = 'block';
+                document.getElementById('display-bal').innerText = balance.toFixed(2) + " ETB";
+                resetGame();
+            }, 2000);
+        }
+
+        function resetGame() {
+            isBingo = false;
+            myCards = [];
+            document.querySelectorAll('.card-opt').forEach(el => el.classList.remove('selected'));
+            document.getElementById('card-count').innerText = "0";
+            clearInterval(timerInterval);
+            startTimer();
         }
     </script>
 </body>
