@@ -6,37 +6,43 @@
     <style>
         :root { --bg: #0b0e11; --card: #1e2329; --primary: #fcd535; --green: #0ecb81; --text: #ffffff; }
         body { background-color: var(--bg); color: var(--text); font-family: sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; user-select: none; }
-        .header { width: 100%; padding: 15px; display: flex; justify-content: space-between; align-items: center; background: #161a1e; position: sticky; top: 0; z-index: 1000; border-bottom: 1px solid #333; box-sizing: border-box; }
+        .header { width: 100%; padding: 15px; display: flex; justify-content: space-between; align-items: center; background: #161a1e; border-bottom: 1px solid #333; box-sizing: border-box; }
         .logo { font-size: 20px; font-weight: bold; color: var(--primary); }
         .balance { border: 1px solid var(--green); color: var(--green); padding: 5px 12px; border-radius: 5px; font-weight: bold; }
-        .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; padding: 15px; width: 100%; max-width: 450px; box-sizing: border-box; margin-bottom: 100px; }
-        .cell { background: var(--card); aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 15px; font-weight: bold; cursor: pointer; border: 1px solid #2b2f36; }
+        .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; padding: 15px; width: 100%; max-width: 450px; box-sizing: border-box; }
+        .cell { background: var(--card); aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-weight: bold; border: 1px solid #2b2f36; }
         .selected { background: var(--primary) !important; color: #000; }
         .winner { background: var(--green) !important; box-shadow: 0 0 15px var(--green); color: #fff; }
-        .controls { position: fixed; bottom: 0; width: 100%; background: #161a1e; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #333; box-sizing: border-box; }
-        .btn-plus { background: var(--primary); border: none; width: 50px; height: 50px; border-radius: 50%; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .controls { position: fixed; bottom: 0; width: 100%; background: #161a1e; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #333; box-sizing: border-box; }
+        .btn-plus { background: var(--primary); border: none; width: 50px; height: 50px; border-radius: 50%; font-size: 28px; font-weight: bold; }
     </style>
 </head>
 <body>
-<div class="header"><div class="logo">BingoEthio</div><div class="balance" id="bal">1,540.00 ETB</div></div>
-<div class="grid" id="g"></div>
-<div class="controls"><div>Gatii: <span id="p" style="color:var(--primary); font-size:20px; font-weight:bold;">2</span> ETB</div><button class="btn-plus" onclick="inc()">+</button></div>
-<script>
-    let b = parseFloat(localStorage.getItem('b_bal')) || 1540; let p = 2;
-    function up() { document.getElementById('bal').innerText = b.toLocaleString() + ".00 ETB"; document.getElementById('p').innerText = p; localStorage.setItem('b_bal', b); }
-    function inc() { p += 2; up(); }
-    for (let i = 1; i <= 100; i++) {
-        const d = document.createElement('div'); d.className = 'cell'; d.innerText = i;
-        d.onclick = () => {
-            if (b < p) return alert("Herrega gahaa hin qabdu!");
-            b -= p; d.classList.add('selected'); up();
-            if ([8, 13, 33, 49, 77].includes(i)) {
-                setTimeout(() => { b += (p * 80); d.classList.replace('selected', 'winner'); up(); }, 600);
-            } else { setTimeout(() => d.classList.remove('selected'), 400); }
-        };
-        document.getElementById('g').appendChild(d);
-    }
-    up();
-</script>
+    <div class="header">
+        <div class="logo">BingoEthio</div>
+        <div class="balance" id="bal">1,540.00 ETB</div>
+    </div>
+    <div class="grid" id="grid"></div>
+    <div class="controls">
+        <div>Gatii: <span id="prc" style="color:var(--primary); font-size:20px; font-weight:bold;">2</span> ETB</div>
+        <button class="btn-plus" onclick="inc()">+</button>
+    </div>
+    <script>
+        let b = parseFloat(localStorage.getItem('b_bal')) || 1540; let p = 2;
+        function up() { document.getElementById('bal').innerText = b.toLocaleString() + ".00 ETB"; document.getElementById('prc').innerText = p; localStorage.setItem('b_bal', b); }
+        function inc() { p += 2; up(); }
+        for (let i = 1; i <= 100; i++) {
+            const d = document.createElement('div'); d.className = 'cell'; d.innerText = i;
+            d.onclick = () => {
+                if (b < p) return alert("Qarshii gahaa hin qabdu!");
+                b -= p; d.classList.add('selected'); up();
+                if ([8, 13, 33, 52].includes(i)) {
+                    setTimeout(() => { b += (p * 80); d.classList.replace('selected', 'winner'); up(); }, 600);
+                } else { setTimeout(() => d.classList.remove('selected'), 500); }
+            };
+            document.getElementById('grid').appendChild(d);
+        }
+        up();
+    </script>
 </body>
 </html>
