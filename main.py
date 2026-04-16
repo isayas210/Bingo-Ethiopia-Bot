@@ -11,22 +11,23 @@ dp = Dispatcher(bot)
 
 # Mini App akka banamuuf (index.html tajaajila)
 async def handle(request):
-    return web.FileResponse('index.html')
+    try:
+        return web.FileResponse('index.html')
+    except:
+        return web.Response(text="Bingo Ethiopia Live is Running")
 
 async def start_web_server():
     app = web.Application()
     app.router.add_get('/', handle)
     runner = web.AppRunner(app)
     await runner.setup()
-    # Render "PORT" nuuf kenna, yoo dhabame 10000 fayyadama
+    # Render "PORT" kana akka argatu gochuuf
     port = int(os.environ.get("PORT", 10000))
     site = web.TCPSite(runner, '0.0.0.0', port)
     await site.start()
-    print(f"Web server started on port {port}")
 
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
-    # Web server bota wajjiin akka dammaqu godha
     loop.create_task(start_web_server())
-    # Bota kee kaasi
+    # Bota kee dammaqsi
     executor.start_polling(dp, skip_updates=True)
