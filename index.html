@@ -1,20 +1,15 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Bingo Ethiopia</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { text-align: center; background-color: #2c3e50; color: white; font-family: sans-serif; }
-        .bingo-board { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 20px auto; width: 300px; }
-        .cell { background: #34495e; padding: 20px; border-radius: 5px; }
+        body { background: #1a1a1a; color: white; text-align: center; font-family: sans-serif; }
+        .btn { background: #0088cc; color: white; border: none; padding: 15px 30px; border-radius: 10px; font-size: 20px; cursor: pointer; margin-top: 50px; }
     </style>
 </head>
 <body>
-    <h1>Bingo Ethiopia Live</h1>
-    <div class="bingo-board" id="board">
-        </div>
-    <script>
-        // Koodii taphaa (JavaScript) asitti barreessi
-        console.log("Bingo App is running!");
-    </script>
+    <h1>🎮 Bingo Ethiopia</h1>
+    <button class="btn" onclick="window.Telegram.WebApp.showAlert('Taphni dhiyootti eegala!')">Tapha Jalqabi</button>
+    <script>window.Telegram.WebApp.ready();</script>
 </body>
 </html>
