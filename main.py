@@ -1,38 +1,36 @@
 import os
+import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.utils import executor
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
+from aiohttp import web
 
-# Token kee Render irratti waan galchiteef asitti hin jijjiirin
+# TOKEN kee asitti galchi
 TOKEN = os.getenv("TOKEN")
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
 
+# Mini App akka banamuuf (index.html tajaajila)
+async def handle(request):
+    if os.path.exists('index.html'):
+        return web.FileResponse('index.html')
+    return web.Response(text="Bingo Ethiopia is Running!")
+
+async def on_startup(dp):
+    # Web server port Render irratti jalqabsiisuu
+    app = web.Application()
+    app.router.add_get('/', handle)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', int(os.environ.get("PORT", 10000)))
+    await site.start()
+    print("Web server started on port 10000")
+
 @dp.message_handler(commands=['start'])
 async def send_welcome(message: types.Message):
-    user_name = message.from_user.first_name
-    
-    # 1. Button Bilbila Gaafatu
-    contact_btn = KeyboardButton(text="📲 Lakkoofsa Bilbilaa Ergi", request_contact=True)
-    
-    # 2. Button Mini App (Bingo) - Linkii kee isa sirrii
-    bingo_btn = KeyboardButton(
-        text="🎮 Open Bingo", 
-        web_app=WebAppInfo(url="https://isayas210.github.io/Bingo-Ethiopia-Bot/")
-    )
-    
-    keyboard = ReplyKeyboardMarkup(resize_keyboard=True).add(contact_btn).add(bingo_btn)
-    
-    msg = (f"Baga nagaan dhufte, {user_name}! 👋\n\n"
-           "Tajaajila keenya guutummaatti argachuuf 'Lakkoofsa Bilbilaa Ergi' kan jedhu tuqi.")
-    
-    await message.answer(msg, reply_markup=keyboard)
-
-# Lakk. Bilbilaa galmeessuuf
-@dp.message_handler(content_types=['contact'])
-async def handle_contact(message: types.Message):
-    phone = message.contact.phone_number
-    await message.answer(f"✅ Galmeen kee milkaa'eera!\nBilbila: {phone}\nAmma 'Open Bingo' tuquun dorgomi.")
+    await message.reply("Baga nagaan dhufte! Mini App banuun taphadhu.")
 
 if __name__ == '__main__':
+    # Bota kaasuu
+    loop = asyncio.get_event_loop()
+    loop.create_task(on_startup(dp))
     executor.start_polling(dp, skip_updates=True)
