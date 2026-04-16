@@ -3,129 +3,84 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bingo Ethio Pro</title>
+    <title>Bingo Ethio 24/7 Pro</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        :root { --gold: #ffcc00; --dark: #050505; --green: #2ecc71; --red: #e74c3c; --blue: #3498db; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--dark); color: white; margin: 0; text-align: center; overflow-x: hidden; }
+        :root { --gold: #ffcc00; --dark: #050505; --green: #2ecc71; --red: #e74c3c; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--dark); color: white; margin: 0; text-align: center; }
         
-        /* Balance UI Bareedaa */
-        .top-status { 
-            background: linear-gradient(180deg, #1a1a1a 0%, #050505 100%);
-            padding: 15px; border-bottom: 2px solid var(--gold);
-            display: flex; justify-content: space-between; align-items: center;
-            position: sticky; top: 0; z-index: 100;
-        }
-        .bal-container { background: rgba(46, 204, 113, 0.1); padding: 5px 15px; border-radius: 20px; border: 1px solid var(--green); }
-        .bal-amt { color: var(--green); font-weight: 900; font-size: 20px; }
+        .header { background: #111; padding: 10px; border-bottom: 2px solid var(--gold); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; }
+        .bal-box { background: rgba(46, 204, 113, 0.1); padding: 5px 10px; border-radius: 10px; border: 1px solid var(--green); }
+        .bal-amt { color: var(--green); font-weight: 900; font-size: 18px; }
 
-        /* Kaartaa 100nuu Al-tokkotti */
-        .selection-grid { 
-            display: grid; grid-template-columns: repeat(10, 1fr); 
-            gap: 4px; padding: 10px; background: #000;
+        /* Kaartaawwan 8 Al-tokkotti (2x4 Grid) */
+        .boards-grid { 
+            display: grid; 
+            grid-template-columns: repeat(2, 1fr); 
+            gap: 6px; padding: 8px; 
         }
-        .card-opt { 
-            aspect-ratio: 1/1; font-size: 11px; display: flex; 
-            align-items: center; justify-content: center; 
-            background: var(--red); border-radius: 3px; cursor: pointer; 
-            font-weight: bold; transition: 0.2s;
-        }
-        .card-opt.selected { background: var(--green); box-shadow: 0 0 10px var(--green); transform: scale(1.1); }
-
-        /* Game Area */
-        .caller-box { background: #111; padding: 20px; font-size: 60px; color: var(--gold); font-weight: 900; border-bottom: 4px solid var(--gold); }
-        .boards-view { display: flex; overflow-x: auto; gap: 15px; padding: 15px; scroll-snap-type: x mandatory; }
-        .mini-card { 
-            min-width: 300px; background: #151515; padding: 10px; 
-            border-radius: 15px; border: 1px solid #333; scroll-snap-align: center;
-        }
-        .bingo-text { display: grid; grid-template-columns: repeat(5, 1fr); color: var(--gold); font-weight: 900; margin-bottom: 5px; }
-        .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
-        .cell { 
-            background: #222; aspect-ratio: 1/1; display: flex; 
-            align-items: center; justify-content: center; font-size: 18px; 
-            border-radius: 5px; border: 1px solid #444;
-        }
+        .mini-card { background: #151515; padding: 4px; border-radius: 8px; border: 1px solid #333; }
+        .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; }
+        .cell { background: #222; aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 2px; }
         .marked { background: var(--green) !important; color: black; font-weight: bold; }
 
-        .btn-ready { background: var(--gold); color: black; width: 90%; padding: 15px; border: none; border-radius: 12px; font-weight: 900; margin: 20px; font-size: 18px; }
+        .caller-bar { background: #000; padding: 15px; font-size: 45px; color: var(--gold); font-weight: 900; border-bottom: 3px solid var(--gold); }
+        #timer-msg { padding: 20px; color: var(--gold); font-size: 20px; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div id="selection-screen">
-        <div class="top-status">
-            <div class="bal-container">
-                <small style="color:#aaa; display:block; font-size:10px;">BALANCE</small>
-                <span class="bal-amt">3,500.00 ETB</span>
-            </div>
-            <div id="timer" style="color:var(--gold); font-weight:bold; font-size:20px;">30s</div>
+    <div class="header">
+        <div class="bal-box">
+            <small style="font-size: 10px; color: #aaa;">BALANCE</small><br>
+            <span class="bal-amt" id="user-balance">2,500.00 ETB</span>
         </div>
-        <h4 style="margin:15px 0;">Kaartaa Hirmaachisuu Barbaaddu Filadhu</h4>
-        <div class="selection-grid" id="s-grid"></div>
-        <button class="btn-ready" onclick="startGame()">TAPHA JALQABI</button>
+        <div id="status" style="font-size: 12px; color: var(--gold);">24/7 ACTIVE</div>
+    </div>
+
+    <div id="selection-screen">
+        <div id="timer-msg">Taphi Ofumaan Jalqaba: <span id="secs">30</span>s</div>
+        <p style="font-size: 12px; color: #888;">Kaartaa filachuu baattus ofumaan siif filatama.</p>
+        <div style="display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px; padding: 10px;">
+            </div>
     </div>
 
     <div id="game-screen" style="display:none;">
-        <div class="caller-box" id="caller">...</div>
-        <div class="boards-view" id="boards-view"></div>
+        <div class="caller-bar" id="caller">...</div>
+        <div class="boards-grid" id="boards-container"></div>
     </div>
 
     <script>
         const tele = window.Telegram.WebApp;
         tele.expand();
 
-        let selectedCards = [];
+        let selectedCards = [1, 2, 3, 4, 5, 6, 7, 8]; // Ofumaan 8 filatama
         let calledNums = [];
         let timeLeft = 30;
 
-        // 1. Kaartaa 100nuu uumuu
-        const sGrid = document.getElementById('s-grid');
-        for (let i = 1; i <= 100; i++) {
-            const div = document.createElement('div');
-            div.className = 'card-opt';
-            div.innerText = i;
-            div.onclick = function() {
-                if (this.classList.contains('selected')) {
-                    this.classList.remove('selected');
-                    selectedCards = selectedCards.filter(n => n !== i);
-                } else {
-                    this.classList.add('selected');
-                    selectedCards.push(i);
-                }
-                tele.HapticFeedback.impactOccurred('light');
-            };
-            sGrid.appendChild(div);
-        }
-
-        // 2. Sekoondii 30 eeguu
-        const timerInterval = setInterval(() => {
+        // Auto-Timer: Sekoondii 30 dhumnaan ofumaan jalqaba
+        const timer = setInterval(() => {
             timeLeft--;
-            document.getElementById('timer').innerText = timeLeft + "s";
+            document.getElementById('secs').innerText = timeLeft;
             if (timeLeft <= 0) {
-                clearInterval(timerInterval);
+                clearInterval(timer);
                 startGame();
             }
         }, 1000);
 
         function startGame() {
-            if (selectedCards.length === 0) selectedCards.push(Math.floor(Math.random() * 100) + 1);
             document.getElementById('selection-screen').style.display = 'none';
             document.getElementById('game-screen').style.display = 'block';
-            renderGameBoards();
+            render8Boards();
             startCalling();
         }
 
-        function renderGameBoards() {
-            const container = document.getElementById('boards-view');
+        function render8Boards() {
+            const container = document.getElementById('boards-container');
             selectedCards.forEach(id => {
                 const bDiv = document.createElement('div');
                 bDiv.className = 'mini-card';
-                bDiv.innerHTML = `
-                    <div style="color:var(--gold); margin-bottom:5px;">KAARTAA #${id}</div>
-                    <div class="bingo-text"><div>B</div><div>I</div><div>N</div><div>G</div><div>O</div></div>
-                    <div class="grid" id="grid-${id}"></div>
-                `;
+                bDiv.innerHTML = `<div style="color:var(--gold); font-size:9px; margin-bottom:2px;">#${id}</div><div class="grid" id="grid-${id}"></div>`;
                 container.appendChild(bDiv);
                 
                 const grid = document.getElementById(`grid-${id}`);
@@ -135,12 +90,12 @@
                         const cell = document.createElement('div');
                         cell.className = 'cell';
                         if (r === 2 && c === 2) {
-                            cell.innerText = "FREE";
+                            cell.innerText = "F";
                             cell.classList.add('marked');
                         } else {
                             const val = Math.floor(Math.random() * (ranges[c][1] - ranges[c][0] + 1)) + ranges[c][0];
                             cell.innerText = val;
-                            cell.setAttribute('data-num', val);
+                            cell.setAttribute('data-val', val);
                         }
                         grid.appendChild(cell);
                     }
@@ -158,17 +113,19 @@
                 let L = n <= 15 ? 'B' : n <= 30 ? 'I' : n <= 45 ? 'N' : n <= 60 ? 'G' : 'O';
                 caller.innerText = `${L}${n}`;
                 
-                document.querySelectorAll(`.cell[data-num="${n}"]`).forEach(cell => {
+                document.querySelectorAll(`.cell[data-val="${n}"]`).forEach(cell => {
                     cell.classList.add('marked');
-                    tele.HapticFeedback.notificationOccurred('success');
+                    tele.HapticFeedback.impactOccurred('medium');
                 });
 
-                if (calledNums.length > 40) { // Demo win
+                if (calledNums.length > 40) {
                     clearInterval(interval);
                     caller.innerText = "BINGO!";
-                    setTimeout(() => location.reload(), 2000);
+                    // Injifataaf: 100x100 = 10,000 + 300% (30,000) = 40,000 ETB
+                    document.getElementById('user-balance').innerText = "40,000.00 ETB";
+                    setTimeout(() => location.reload(), 5000);
                 }
-            }, 3500);
+            }, 3000);
         }
     </script>
 </body>
