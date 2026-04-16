@@ -1,36 +1,32 @@
 import os
 import asyncio
-from aiogram import Bot, Dispatcher, types
+from aiogram import Bot, Dispatcher
 from aiogram.utils import executor
 from aiohttp import web
 
-# TOKEN kee asitti galchi
+# TOKEN kee Environment Variable Render irraa fudhata
 TOKEN = os.getenv("TOKEN")
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
 
 # Mini App akka banamuuf (index.html tajaajila)
 async def handle(request):
-    if os.path.exists('index.html'):
-        return web.FileResponse('index.html')
-    return web.Response(text="Bingo Ethiopia is Running!")
+    return web.FileResponse('index.html')
 
-async def on_startup(dp):
-    # Web server port Render irratti jalqabsiisuu
+async def start_web_server():
     app = web.Application()
     app.router.add_get('/', handle)
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, '0.0.0.0', int(os.environ.get("PORT", 10000)))
+    # Render "PORT" nuuf kenna, yoo dhabame 10000 fayyadama
+    port = int(os.environ.get("PORT", 10000))
+    site = web.TCPSite(runner, '0.0.0.0', port)
     await site.start()
-    print("Web server started on port 10000")
-
-@dp.message_handler(commands=['start'])
-async def send_welcome(message: types.Message):
-    await message.reply("Baga nagaan dhufte! Mini App banuun taphadhu.")
+    print(f"Web server started on port {port}")
 
 if __name__ == '__main__':
-    # Bota kaasuu
     loop = asyncio.get_event_loop()
-    loop.create_task(on_startup(dp))
+    # Web server bota wajjiin akka dammaqu godha
+    loop.create_task(start_web_server())
+    # Bota kee kaasi
     executor.start_polling(dp, skip_updates=True)
