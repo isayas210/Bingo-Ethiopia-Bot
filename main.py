@@ -1,33 +1,19 @@
-import os
-import asyncio
-from aiogram import Bot, Dispatcher
-from aiohttp import web
+import logging
+from aiogram import Bot, Dispatcher, executor
+from os import getenv
 
-# TOKEN kee Environment Variable Render irraa fudhata
-TOKEN = os.getenv("TOKEN")
-bot = Bot(token=TOKEN)
+# API Token kee galchi
+API_TOKEN = 'TOKEN_KEE_AS_GALCHI'
+
+logging.basicConfig(level=logging.INFO)
+
+bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
 
-async def handle(request):
-    try:
-        # Mini App kee akka banamuuf
-        return web.FileResponse('index.html')
-    except:
-        return web.Response(text="Bingo Ethiopia is Live!")
-
-async def start_bot():
-    # Conflict akka hin uumneef polling asitti jalqaba
-    print("Bot dammaqaa jira...")
-    await dp.start_polling()
-
-async def create_app():
-    app = web.Application()
-    app.router.add_get('/', handle)
-    # Bota server wajjin kaasa
-    asyncio.create_task(start_bot())
-    return app
+# Akka bot-ni kee yeroo hunda kuta (Conflict) hin uumneef
+async def on_startup(dp):
+    await bot.delete_webhook() # Webhook moofaa qulqulleessa
+    print("Bot-ni Bingo hojii jalqabeera!")
 
 if __name__ == '__main__':
-    # Render port nuuf kenna
-    port = int(os.environ.get("PORT", 10000))
-    web.run_app(create_app(), host='0.0.0.0', port=port)
+    executor.start_polling(dp, on_startup=on_startup, skip_updates=True)
