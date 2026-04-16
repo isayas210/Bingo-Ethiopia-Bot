@@ -8,27 +8,24 @@
     <style>
         :root { --gold: #ffcc00; --dark: #050505; --green: #2ecc71; --red: #ff4757; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--dark); color: white; margin: 0; text-align: center; user-select: none; }
+        
         .header { background: #111; padding: 10px; border-bottom: 2px solid var(--gold); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; }
         .bal-box { background: rgba(46, 204, 113, 0.1); padding: 5px 10px; border-radius: 10px; border: 1px solid var(--green); }
         .bal-amt { color: var(--green); font-weight: 900; }
-        
-        /* Bet Control with + */
-        .bet-control { display: flex; align-items: center; justify-content: center; gap: 15px; padding: 15px; background: #151515; }
-        .bet-display { background: #222; border: 1px solid var(--gold); padding: 8px 20px; border-radius: 5px; font-size: 20px; font-weight: bold; }
-        .plus-btn { background: var(--gold); color: black; border: none; width: 45px; height: 45px; border-radius: 50%; font-size: 28px; font-weight: bold; cursor: pointer; }
 
-        .selection-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; padding: 10px; max-height: 400px; overflow-y: auto; }
-        .card-opt { background: #222; padding: 12px 0; border-radius: 8px; border: 1px solid #444; }
-        .card-opt.selected { background: var(--green); color: black; font-weight: bold; }
+        /* Selection Screen */
+        .selection-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; padding: 10px; }
+        .card-opt { background: #222; padding: 15px 0; border-radius: 8px; border: 1px solid #444; font-weight: bold; }
+        .card-opt.mine { background: var(--green); color: black; border-color: white; }
+        .card-opt.others { background: var(--gold); color: black; animation: pulse 1s infinite; } /* Maamila biraa */
 
-        .caller-area { background: #000; padding: 15px; border-bottom: 2px solid var(--gold); }
-        .big-call { font-size: 55px; color: var(--gold); font-weight: 900; }
-        .history { display: flex; gap: 8px; justify-content: center; overflow-x: auto; padding: 10px; color: #777; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
 
+        /* Game Screen - Kartellaa Kee Qofa */
         .boards-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 10px; }
-        .mini-card { background: #111; padding: 5px; border-radius: 8px; border: 1px solid #333; }
+        .mini-card { background: #111; padding: 5px; border-radius: 8px; border: 1px solid var(--gold); }
         .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; }
-        .cell { background: #222; aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; font-size: 11px; }
+        .cell { background: #222; aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; font-size: 11px; border-radius: 2px; }
         .marked { background: var(--green) !important; color: black; font-weight: bold; }
 
         #overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 2000; justify-content: center; align-items: center; flex-direction: column; }
@@ -37,133 +34,114 @@
 <body>
 
     <div class="header">
-        <div class="bal-box">
-            <span class="bal-amt" id="display-bal">2,500.00 ETB</span>
-        </div>
-        <div style="color:var(--gold); font-size: 14px;">Filatame: <span id="card-count">0</span>/20</div>
+        <div class="bal-box"><span class="bal-amt" id="display-bal">1,540.00 ETB</span></div>
+        <div style="color:var(--gold);">Yeroo: <span id="seconds">40</span>s</div>
     </div>
 
     <div id="selection-screen">
-        <div class="bet-control">
-            <span style="color:#aaa;">BET:</span>
-            <div class="bet-display" id="bet-val">2</div>
-            <button class="plus-btn" onclick="nextBet()">+</button>
-        </div>
-        <div style="padding:10px; color:var(--gold);">Taphi Ofumaan Jalqaba: <span id="seconds">15</span>s</div>
+        <div style="padding:10px; font-size:12px; color:#888;">Keelloon kan namni biraa filatedha.</div>
         <div class="selection-grid" id="s-grid"></div>
     </div>
 
     <div id="game-screen" style="display:none;">
-        <div class="caller-area">
-            <div class="big-call" id="caller">...</div>
-            <div id="call-history" class="history"></div>
-        </div>
+        <div style="padding:20px; font-size:60px; color:var(--gold); font-weight:900;" id="caller">--</div>
         <div class="boards-grid" id="boards-container"></div>
     </div>
 
     <div id="overlay">
         <div id="win-msg" style="text-align:center;"></div>
-        <p style="color:#666; margin-top:20px;">Sekondii 2 booda ofumaan deebi'a...</p>
     </div>
 
     <script>
-        const tele = window.Telegram.WebApp;
         let myCards = [];
-        let balance = 2500;
-        let currentBet = 2; 
-        const betLevels = [2, 4, 10, 20];
-        let betIdx = 0;
-        let timeLeft = 15;
+        let otherCards = []; // Tikeetii namoota biraa
+        let balance = 1540;
+        let timeLeft = 40; // Second 40
         let isBingo = false;
-        let calledNums = [];
         let gameGrids = {};
-        let timerInterval;
 
-        function nextBet() {
-            betIdx = (betIdx + 1) % betLevels.length;
-            currentBet = betLevels[betIdx];
-            document.getElementById('bet-val').innerText = currentBet;
-        }
+        // Fake player simulation (Keelloo akka mul'atuuf)
+        for(let i=0; i<15; i++) otherCards.push(Math.floor(Math.random() * 100) + 1);
 
         const sGrid = document.getElementById('s-grid');
         for (let i = 1; i <= 100; i++) {
             const div = document.createElement('div');
             div.className = 'card-opt';
+            if (otherCards.includes(i)) div.classList.add('others');
             div.innerText = i;
             div.onclick = function() {
-                if (this.classList.contains('selected')) {
-                    this.classList.remove('selected');
+                if (otherCards.includes(i)) return; // Kan namaa hin filatamu
+                if (this.classList.contains('mine')) {
+                    this.classList.remove('mine');
                     myCards = myCards.filter(n => n !== i);
                 } else if (myCards.length < 20) {
-                    this.classList.add('selected');
+                    this.classList.add('mine');
                     myCards.push(i);
                 }
-                document.getElementById('card-count').innerText = myCards.length;
             };
             sGrid.appendChild(div);
         }
 
-        function startTimer() {
-            timeLeft = 15;
-            timerInterval = setInterval(() => {
-                timeLeft--;
-                document.getElementById('seconds').innerText = timeLeft;
-                if (timeLeft <= 0) { clearInterval(timerInterval); startGame(); }
-            }, 1000);
-        }
-        startTimer();
+        let timer = setInterval(() => {
+            timeLeft--;
+            document.getElementById('seconds').innerText = timeLeft;
+            if (timeLeft <= 0) { clearInterval(timer); startGame(); }
+        }, 1000);
 
         function startGame() {
             if (myCards.length === 0) myCards.push(Math.floor(Math.random() * 100) + 1);
-            balance -= (currentBet * myCards.length);
-            document.getElementById('display-bal').innerText = balance.toFixed(2) + " ETB";
             document.getElementById('selection-screen').style.display = 'none';
             document.getElementById('game-screen').style.display = 'block';
             
             const container = document.getElementById('boards-container');
             container.innerHTML = "";
+            
+            // Kartellaa Kee Qofti akka mul'atu (Mana hin mul'atu)
             for(let i=1; i<=100; i++) {
-                const isMine = myCards.includes(i);
-                const card = document.createElement('div');
-                card.className = 'mini-card';
-                card.innerHTML = `<div style="font-size:9px; color:${isMine?'var(--gold)':'#555'};">${isMine?'KEETII':'MANAA'} #${i}</div><div class="grid" id="grid-${i}"></div>`;
-                container.appendChild(card);
-                generateGrid(i);
+                if (myCards.includes(i)) {
+                    const card = document.createElement('div');
+                    card.className = 'mini-card';
+                    card.innerHTML = `<div style="font-size:10px; color:var(--gold); margin-bottom:5px;">KEETII #${i}</div><div class="grid" id="grid-${i}"></div>`;
+                    container.appendChild(card);
+                    generateGrid(i, true);
+                } else {
+                    generateGrid(i, false); // Bilisaan duubatti hojjeta
+                }
             }
             runEngine();
         }
 
-        function generateGrid(id) {
-            const grid = document.getElementById(`grid-${id}`);
-            const ranges = [[1,15], [16,30], [31,45], [46,60], [61,75]];
+        function generateGrid(id, visible) {
+            const grid = visible ? document.getElementById(`grid-${id}`) : null;
             const cells = [];
-            for (let r = 0; r < 5; r++) {
-                for (let c = 0; c < 5; c++) {
-                    const cellData = { marked: (r===2 && c===2), val: 0, el: null };
-                    const val = Math.floor(Math.random() * (ranges[c][1] - ranges[c][0] + 1)) + ranges[c][0];
-                    cellData.val = (r===2 && c===2) ? 0 : val;
-                    const cell = document.createElement('div');
-                    cell.className = cellData.marked ? 'cell marked' : 'cell';
-                    cell.innerText = (r===2 && c===2) ? "F" : val;
-                    grid.appendChild(cell);
-                    cellData.el = cell;
-                    cells.push(cellData);
+            for (let i = 0; i < 25; i++) {
+                const isFree = (i === 12);
+                const val = Math.floor(Math.random() * 75) + 1;
+                const cellData = { marked: isFree, val: isFree ? 0 : val, el: null };
+                if (visible) {
+                    const div = document.createElement('div');
+                    div.className = isFree ? 'cell marked' : 'cell';
+                    div.innerText = isFree ? "F" : val;
+                    grid.appendChild(div);
+                    cellData.el = div;
                 }
+                cells.push(cellData);
             }
             gameGrids[id] = cells;
         }
 
         function runEngine() {
-            calledNums = [];
+            let called = [];
             const engine = setInterval(() => {
                 if (isBingo) { clearInterval(engine); return; }
                 let n;
-                do { n = Math.floor(Math.random() * 75) + 1; } while (calledNums.includes(n));
-                calledNums.push(n);
+                do { n = Math.floor(Math.random() * 75) + 1; } while (called.includes(n));
+                called.push(n);
                 document.getElementById('caller').innerText = n;
+
                 for (let id in gameGrids) {
-                    gameGrids[id].forEach(cell => {
-                        if (cell.val === n) { cell.marked = true; cell.el.classList.add('marked'); }
+                    gameGrids[id].forEach(c => {
+                        if (c.val === n) { c.marked = true; if(c.el) c.el.classList.add('marked'); }
                     });
                 }
                 checkWinner();
@@ -185,31 +163,15 @@
 
         function showResult(id) {
             const overlay = document.getElementById('overlay');
-            const msg = document.getElementById('win-msg');
             overlay.style.display = 'flex';
-            if (myCards.includes(Number(id))) {
-                let winAmt = currentBet * 80;
-                balance += winAmt;
-                msg.innerHTML = `<h1 style="color:var(--gold)">BINGO!</h1><div style="color:var(--red); font-size:60px;">#${id}</div><div style="color:var(--green); font-size:40px;">+${winAmt} ETB</div>`;
-            } else {
-                msg.innerHTML = `<h1 style="color:white">BINGO!</h1><div style="color:var(--red); font-size:60px;">#${id}</div><p>Manaatu injifate</p>`;
-            }
-            setTimeout(() => {
-                overlay.style.display = 'none';
-                document.getElementById('game-screen').style.display = 'none';
-                document.getElementById('selection-screen').style.display = 'block';
-                document.getElementById('display-bal').innerText = balance.toFixed(2) + " ETB";
-                resetGame();
-            }, 2000);
-        }
+            const isMine = myCards.includes(Number(id));
+            
+            document.getElementById('win-msg').innerHTML = `
+                <h1 style="color:${isMine?'var(--gold)':'white'}">BINGO!</h1>
+                <div style="font-size:80px; font-weight:900; color:var(--red);">#${id}</div>
+            `;
 
-        function resetGame() {
-            isBingo = false;
-            myCards = [];
-            document.querySelectorAll('.card-opt').forEach(el => el.classList.remove('selected'));
-            document.getElementById('card-count').innerText = "0";
-            clearInterval(timerInterval);
-            startTimer();
+            setTimeout(() => location.reload(), 2000);
         }
     </script>
 </body>
