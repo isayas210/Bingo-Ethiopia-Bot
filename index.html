@@ -3,46 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bingo Ethio 24/7 Pro</title>
+    <title>Bingo Ethio Pro</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root { --gold: #ffcc00; --dark: #050505; --green: #2ecc71; --red: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--dark); color: white; margin: 0; text-align: center; }
         
-        .header { background: #111; padding: 10px; border-bottom: 2px solid var(--gold); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; }
+        /* Header & Balance */
+        .header { background: #111; padding: 10px; border-bottom: 2px solid var(--gold); display: flex; justify-content: space-between; align-items: center; position: sticky; top:0; z-index:100; }
         .bal-box { background: rgba(46, 204, 113, 0.1); padding: 5px 10px; border-radius: 10px; border: 1px solid var(--green); }
-        .bal-amt { color: var(--green); font-weight: 900; font-size: 18px; }
+        .bal-amt { color: var(--green); font-weight: 900; }
 
-        /* Kaartaawwan 8 Al-tokkotti (2x4 Grid) */
-        .boards-grid { 
-            display: grid; 
-            grid-template-columns: repeat(2, 1fr); 
-            gap: 6px; padding: 8px; 
-        }
-        .mini-card { background: #151515; padding: 4px; border-radius: 8px; border: 1px solid #333; }
+        /* Selection Area */
+        .selection-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; padding: 15px; max-height: 350px; overflow-y: auto; background: #000; }
+        .card-opt { background: #222; padding: 12px 0; border-radius: 8px; border: 1px solid #444; font-weight: bold; font-size: 14px; }
+        .card-opt.selected { background: var(--green); color: black; box-shadow: 0 0 10px var(--green); }
+
+        /* Waiting Screen */
+        #waiting-msg { padding: 40px 20px; color: var(--gold); font-style: italic; display: none; }
+
+        /* Game Screen */
+        .boards-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; padding: 10px; }
+        .mini-card { background: #151515; padding: 5px; border-radius: 8px; border: 1px solid #333; }
         .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; }
         .cell { background: #222; aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 2px; }
         .marked { background: var(--green) !important; color: black; font-weight: bold; }
-
         .caller-bar { background: #000; padding: 15px; font-size: 45px; color: var(--gold); font-weight: 900; border-bottom: 3px solid var(--gold); }
-        #timer-msg { padding: 20px; color: var(--gold); font-size: 20px; font-weight: bold; }
+        
+        .btn-start { background: var(--gold); color: black; width: 85%; padding: 15px; border: none; border-radius: 12px; font-weight: 900; margin-top: 20px; }
     </style>
 </head>
 <body>
 
     <div class="header">
         <div class="bal-box">
-            <small style="font-size: 10px; color: #aaa;">BALANCE</small><br>
-            <span class="bal-amt" id="user-balance">2,500.00 ETB</span>
+            <small style="font-size:10px;">BALANCE</small><br>
+            <span class="bal-amt">2,500.00 ETB</span>
         </div>
-        <div id="status" style="font-size: 12px; color: var(--gold);">24/7 ACTIVE</div>
+        <div id="status-text" style="color:var(--gold); font-weight:bold;">Kaartaa 1-20 Filadhu</div>
     </div>
 
     <div id="selection-screen">
-        <div id="timer-msg">Taphi Ofumaan Jalqaba: <span id="secs">30</span>s</div>
-        <p style="font-size: 12px; color: #888;">Kaartaa filachuu baattus ofumaan siif filatama.</p>
-        <div style="display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px; padding: 10px;">
-            </div>
+        <div class="selection-grid" id="s-grid"></div>
+        <button id="start-btn" class="btn-start" onclick="startGame()" style="display:none;">TAPHA JALQABI</button>
+        <div id="waiting-msg">Taphi deemaa jira... Maaloo hanga marsaan kun xumuramuutti eegi.</div>
     </div>
 
     <div id="game-screen" style="display:none;">
@@ -54,33 +58,56 @@
         const tele = window.Telegram.WebApp;
         tele.expand();
 
-        let selectedCards = [1, 2, 3, 4, 5, 6, 7, 8]; // Ofumaan 8 filatama
-        let calledNums = [];
-        let timeLeft = 30;
+        let selectedCards = [];
+        let isGameRunning = false; // Kun backend irraa dhufuu danda'a
 
-        // Auto-Timer: Sekoondii 30 dhumnaan ofumaan jalqaba
-        const timer = setInterval(() => {
-            timeLeft--;
-            document.getElementById('secs').innerText = timeLeft;
-            if (timeLeft <= 0) {
-                clearInterval(timer);
-                startGame();
-            }
-        }, 1000);
+        // Kaartaa 100 uumuu
+        const sGrid = document.getElementById('s-grid');
+        for (let i = 1; i <= 100; i++) {
+            const div = document.createElement('div');
+            div.className = 'card-opt';
+            div.innerText = "K-" + i;
+            div.onclick = function() {
+                if (isGameRunning) return; 
+                if (this.classList.contains('selected')) {
+                    this.classList.remove('selected');
+                    selectedCards = selectedCards.filter(n => n !== i);
+                } else if (selectedCards.length < 20) {
+                    this.classList.add('selected');
+                    selectedCards.push(i);
+                }
+                
+                const btn = document.getElementById('start-btn');
+                document.getElementById('status-text').innerText = `Filatame: ${selectedCards.length}/20`;
+                btn.style.display = selectedCards.length > 0 ? 'inline-block' : 'none';
+            };
+            sGrid.appendChild(div);
+        }
 
         function startGame() {
+            isGameRunning = true;
             document.getElementById('selection-screen').style.display = 'none';
             document.getElementById('game-screen').style.display = 'block';
-            render8Boards();
+            renderBoards();
             startCalling();
         }
 
-        function render8Boards() {
+        // Namni haaraan yoo seene (Logic)
+        function checkGameState() {
+            // Fake check: taphni deemaa jira yoo ta'e filannoo dhoksi
+            if (isGameRunning && selectedCards.length === 0) {
+                document.getElementById('s-grid').style.display = 'none';
+                document.getElementById('start-btn').style.display = 'none';
+                document.getElementById('waiting-msg').style.display = 'block';
+            }
+        }
+
+        function renderBoards() {
             const container = document.getElementById('boards-container');
             selectedCards.forEach(id => {
                 const bDiv = document.createElement('div');
                 bDiv.className = 'mini-card';
-                bDiv.innerHTML = `<div style="color:var(--gold); font-size:9px; margin-bottom:2px;">#${id}</div><div class="grid" id="grid-${id}"></div>`;
+                bDiv.innerHTML = `<div style="color:var(--gold); font-size:9px;">#${id}</div><div class="grid" id="grid-${id}"></div>`;
                 container.appendChild(bDiv);
                 
                 const grid = document.getElementById(`grid-${id}`);
@@ -104,29 +131,23 @@
         }
 
         function startCalling() {
-            const caller = document.getElementById('caller');
+            let calledNums = [];
             const interval = setInterval(() => {
-                let n;
-                do { n = Math.floor(Math.random() * 75) + 1; } while (calledNums.includes(n));
-                calledNums.push(n);
-                
-                let L = n <= 15 ? 'B' : n <= 30 ? 'I' : n <= 45 ? 'N' : n <= 60 ? 'G' : 'O';
-                caller.innerText = `${L}${n}`;
-                
-                document.querySelectorAll(`.cell[data-val="${n}"]`).forEach(cell => {
-                    cell.classList.add('marked');
-                    tele.HapticFeedback.impactOccurred('medium');
-                });
-
-                if (calledNums.length > 40) {
+                let n = Math.floor(Math.random() * 75) + 1;
+                if (!calledNums.includes(n)) {
+                    calledNums.push(n);
+                    document.getElementById('caller').innerText = n;
+                    document.querySelectorAll(`.cell[data-val="${n}"]`).forEach(el => el.classList.add('marked'));
+                }
+                if (calledNums.length > 50) {
                     clearInterval(interval);
-                    caller.innerText = "BINGO!";
-                    // Injifataaf: 100x100 = 10,000 + 300% (30,000) = 40,000 ETB
-                    document.getElementById('user-balance').innerText = "40,000.00 ETB";
-                    setTimeout(() => location.reload(), 5000);
+                    isGameRunning = false;
+                    setTimeout(() => location.reload(), 3000);
                 }
             }, 3000);
         }
+        
+        checkGameState();
     </script>
 </body>
 </html>
