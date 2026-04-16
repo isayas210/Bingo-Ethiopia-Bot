@@ -3,51 +3,75 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bingo Ethiopia Multi-Card</title>
+    <title>Bingo Ethiopia - Pro</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        :root { --gold: #ffcc00; --dark: #050505; --green: #2ecc71; --red: #e74c3c; --glass: rgba(255, 255, 255, 0.1); }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--dark); color: white; margin: 0; text-align: center; }
+        :root { --gold: #ffcc00; --dark: #050505; --green: #2ecc71; --red: #e74c3c; --blue: #3498db; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--dark); color: white; margin: 0; overflow-x: hidden; }
         
-        /* Balance Section */
-        .balance-card { background: linear-gradient(135deg, #1a1a1a, #000); padding: 15px; border-bottom: 3px solid var(--gold); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
-        .amt { color: var(--green); font-size: 22px; font-weight: 900; text-shadow: 0 0 10px rgba(46, 204, 113, 0.4); }
+        /* Balance Header - Namatti kan hawwatu */
+        .header-status { 
+            background: linear-gradient(180deg, #1a1a1a 0%, #050505 100%);
+            padding: 15px; border-bottom: 2px solid var(--gold);
+            position: sticky; top: 0; z-index: 100;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .balance-box { background: rgba(46, 204, 113, 0.1); padding: 5px 15px; border-radius: 20px; border: 1px solid var(--green); }
+        .balance-label { font-size: 10px; color: #aaa; display: block; }
+        .balance-amt { color: var(--green); font-weight: 900; font-size: 18px; }
 
-        /* Compact Selection Grid */
-        .selection-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; padding: 10px; background: #111; }
-        .card-opt { aspect-ratio: 1/1; font-size: 10px; display: flex; align-items: center; justify-content: center; background: var(--red); border-radius: 3px; cursor: pointer; font-weight: bold; }
-        .card-opt.selected { background: var(--green); box-shadow: 0 0 8px var(--green); }
+        /* Compact Selection Grid - 100 Cards */
+        .selection-grid { 
+            display: grid; grid-template-columns: repeat(10, 1fr); 
+            gap: 3px; padding: 10px; background: #000;
+        }
+        .card-opt { 
+            aspect-ratio: 1/1; font-size: 11px; display: flex; 
+            align-items: center; justify-content: center; 
+            background: var(--red); border-radius: 2px; cursor: pointer; 
+            font-weight: bold; transition: 0.2s;
+        }
+        .card-opt.selected { background: var(--green); transform: scale(1.1); box-shadow: 0 0 10px var(--green); }
 
-        /* Game Display */
-        .caller-display { font-size: 60px; color: var(--gold); font-weight: 900; padding: 20px; background: #111; border-bottom: 2px solid var(--gold); }
+        /* Game Board Area */
+        .caller-area { background: #111; padding: 20px; border-bottom: 3px solid var(--gold); font-size: 55px; color: var(--gold); font-weight: 900; }
+        .boards-scroll { display: flex; overflow-x: auto; gap: 15px; padding: 15px; scroll-snap-type: x mandatory; }
+        .mini-board { 
+            min-width: 280px; background: #151515; padding: 10px; 
+            border-radius: 15px; border: 1px solid #333; scroll-snap-align: center;
+        }
+        .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+        .cell { 
+            background: #222; aspect-ratio: 1/1; display: flex; 
+            align-items: center; justify-content: center; 
+            font-size: 16px; border-radius: 5px; border: 1px solid #333;
+        }
+        .marked { background: var(--green) !important; color: black; font-weight: bold; box-shadow: inset 0 0 10px rgba(0,0,0,0.5); }
         
-        /* Multiple Boards View */
-        .boards-container { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; padding: 10px; }
-        .mini-board { background: #1a1a1a; padding: 5px; border-radius: 10px; border: 1px solid #333; max-width: 170px; }
-        .board-title { font-size: 12px; color: var(--gold); margin-bottom: 5px; }
-        .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; }
-        .cell { width: 30px; height: 30px; background: #222; display: flex; align-items: center; justify-content: center; font-size: 12px; border-radius: 2px; }
-        .marked { background: var(--green) !important; color: black; font-weight: bold; }
-
-        .btn-start { background: var(--gold); color: black; padding: 15px 40px; border-radius: 30px; font-weight: 900; border: none; margin: 20px; cursor: pointer; width: 80%; }
-        #timer { color: var(--red); font-size: 18px; margin: 5px; }
+        .timer-bar { height: 4px; background: var(--gold); width: 100%; transition: linear; }
+        .btn-play { background: var(--gold); color: black; width: 90%; padding: 15px; border: none; border-radius: 10px; font-weight: 900; margin: 15px; font-size: 18px; }
     </style>
 </head>
 <body>
 
     <div id="selection-screen">
-        <div class="balance-card">
-            <div style="text-align:left"><small>BALANCE</small><br><span class="amt">1,250.00 ETB</span></div>
-            <div id="timer">30s</div>
+        <div class="header-status">
+            <div class="balance-box">
+                <span class="balance-label">BALANCE</span>
+                <span class="balance-amt">2,450.00 ETB</span>
+            </div>
+            <div id="timer-text" style="color:var(--gold); font-weight:bold;">30s</div>
         </div>
-        <h4 style="margin:10px 0">Kaartaa Hanga Fedhe Filadhu (1-100)</h4>
+        <div class="timer-bar" id="t-bar"></div>
+        <h3 style="margin:10px;">Kaartaa Filadhu (Hanga fedhe)</h3>
         <div class="selection-grid" id="s-grid"></div>
-        <button class="btn-start" onclick="startGame()">TAPHA JALQABI</button>
+        <button class="btn-play" onclick="startGame()">TAPHA JALQABI</button>
     </div>
 
     <div id="game-screen" style="display:none;">
-        <div class="caller-display" id="caller">...</div>
-        <div class="boards-container" id="boards-container"></div>
+        <div class="caller-area" id="caller">...</div>
+        <div style="color:#888; margin-top:10px;">Kaartaawwan Kee (Gara bitaatti shifit godhi)</div>
+        <div class="boards-scroll" id="boards-container"></div>
     </div>
 
     <script>
@@ -58,7 +82,7 @@
         let calledNums = [];
         let timeLeft = 30;
 
-        // 1. 100nuu al-tokkotti uumuu
+        // 1. Kaartaa 100nuu xixxiqqoo uumuu
         const sGrid = document.getElementById('s-grid');
         for (let i = 1; i <= 100; i++) {
             const div = document.createElement('div');
@@ -77,21 +101,23 @@
             sGrid.appendChild(div);
         }
 
-        // 2. Timer (30s)
-        const tDiv = document.getElementById('timer');
+        // 2. Timer (Sekoondii 30)
+        const tBar = document.getElementById('t-bar');
+        const tText = document.getElementById('timer-text');
         const timer = setInterval(() => {
-            timeLeft--;
-            tDiv.innerText = timeLeft + "s";
+            timeLeft -= 0.1;
+            tBar.style.width = (timeLeft / 30 * 100) + "%";
+            tText.innerText = Math.ceil(timeLeft) + "s";
             if (timeLeft <= 0) {
                 clearInterval(timer);
                 startGame();
             }
-        }, 1000);
+        }, 100);
 
         function startGame() {
-            if(selectedCards.length === 0) {
-                alert("Mee kaartaa yoo xiqqaate tokko filadhu!");
-                return;
+            if (selectedCards.length === 0) {
+                // Kaartaa yoo hin filanne 1ffaa akka fakkeenyaatti fudhata
+                selectedCards.push(1);
             }
             clearInterval(timer);
             document.getElementById('selection-screen').style.display = 'none';
@@ -102,20 +128,20 @@
 
         function renderBoards() {
             const container = document.getElementById('boards-container');
-            selectedCards.forEach(cardNum => {
+            selectedCards.forEach(id => {
                 const bDiv = document.createElement('div');
                 bDiv.className = 'mini-board';
-                bDiv.innerHTML = `<div class="board-title">Kaartaa #${cardNum}</div><div class="grid" id="grid-${cardNum}"></div>`;
+                bDiv.innerHTML = `<div style="color:var(--gold); margin-bottom:5px;">Kaartaa #${id}</div><div class="grid" id="grid-${id}"></div>`;
                 container.appendChild(bDiv);
                 
-                const grid = document.getElementById(`grid-${cardNum}`);
+                const grid = document.getElementById(`grid-${id}`);
                 const ranges = [[1,15], [16,30], [31,45], [46,60], [61,75]];
                 for (let r = 0; r < 5; r++) {
                     for (let c = 0; c < 5; c++) {
                         const cell = document.createElement('div');
                         cell.className = 'cell';
                         if (r === 2 && c === 2) {
-                            cell.innerText = "F";
+                            cell.innerText = "FREE";
                             cell.classList.add('marked');
                         } else {
                             const val = Math.floor(Math.random() * (ranges[c][1] - ranges[c][0] + 1)) + ranges[c][0];
@@ -130,7 +156,7 @@
 
         function startCalling() {
             const caller = document.getElementById('caller');
-            setInterval(() => {
+            const callInterval = setInterval(() => {
                 let n;
                 do { n = Math.floor(Math.random() * 75) + 1; } while (calledNums.includes(n));
                 calledNums.push(n);
@@ -138,18 +164,18 @@
                 let L = n <= 15 ? 'B' : n <= 30 ? 'I' : n <= 45 ? 'N' : n <= 60 ? 'G' : 'O';
                 caller.innerText = `${L}${n}`;
                 
-                // Ofumaan kaartaa hunda irratti mallatteessuu
+                // Kaartaawwan hunda irratti ofumaan mallatteessuu
                 document.querySelectorAll(`.cell[data-val="${n}"]`).forEach(cell => {
                     cell.classList.add('marked');
                     tele.HapticFeedback.notificationOccurred('success');
                 });
 
-                // Win check (Fake simple logic for demo)
-                if(calledNums.length > 40) {
+                if (calledNums.length >= 50) { // Fakkeenyaaf
+                    clearInterval(callInterval);
                     caller.innerText = "BINGO!";
                     setTimeout(() => location.reload(), 2000);
                 }
-            }, 3500);
+            }, 3000);
         }
     </script>
 </body>
