@@ -12,10 +12,10 @@ dp = Dispatcher(bot)
 async def send_welcome(message: types.Message):
     user_name = message.from_user.first_name
     
-    # 1. Button Bilbila Gaafatu (Share Contact)
+    # 1. Button Bilbila Gaafatu
     contact_btn = KeyboardButton(text="📲 Lakkoofsa Bilbilaa Ergi", request_contact=True)
     
-    # 2. Button Mini App (Bingo) - Linkii GitHub Pages keetii
+    # 2. Button Mini App (Bingo) - Linkii kee isa sirrii
     bingo_btn = KeyboardButton(
         text="🎮 Open Bingo", 
         web_app=WebAppInfo(url="https://isayas210.github.io/Bingo-Ethiopia-Bot/")
@@ -28,7 +28,7 @@ async def send_welcome(message: types.Message):
     
     await message.answer(msg, reply_markup=keyboard)
 
-# Lakk. Bilbilaa yoo ergan ofiin galmeessuuf
+# Lakk. Bilbilaa galmeessuuf
 @dp.message_handler(content_types=['contact'])
 async def handle_contact(message: types.Message):
     phone = message.contact.phone_number
