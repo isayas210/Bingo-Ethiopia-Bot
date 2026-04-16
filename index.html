@@ -3,204 +3,93 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bingo Ethio Bot</title>
+    <title>Bingo Ethio</title>
     <style>
-        :root {
-            --bg: #0b0e11;
-            --card: #1e2329;
-            --primary: #fcd535;
-            --green: #0ecb81;
-            --red: #f6465d;
-            --text: #ffffff;
-        }
-
-        body {
-            background-color: var(--bg);
-            color: var(--text);
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            margin: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            user-select: none;
-        }
-
-        /* Header Section - Maqaa fi Balance wal bira */
-        .header {
-            width: 100%;
-            padding: 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #161a1e;
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            box-sizing: border-box;
-            border-bottom: 1px solid #333;
-        }
-
-        .logo-title {
-            font-size: 20px;
-            font-weight: bold;
-            color: var(--primary);
-        }
-
-        .balance-display {
-            border: 1px solid var(--green);
-            color: var(--green);
-            padding: 5px 12px;
-            border-radius: 5px;
-            font-weight: bold;
-            font-size: 16px;
-        }
-
-        /* Bingo Grid (1-100) */
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 6px;
-            padding: 15px;
-            width: 100%;
-            max-width: 450px;
-            box-sizing: border-box;
-            margin-bottom: 90px;
-        }
-
-        .cell {
-            background: var(--card);
-            aspect-ratio: 1/1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 4px;
-            font-size: 15px;
-            font-weight: bold;
-            cursor: pointer;
-            border: 1px solid #2b2f36;
-            transition: 0.2s;
-        }
-
-        /* States */
-        .selected { background: var(--primary) !important; color: #000; }
-        .winner { 
-            background: var(--green) !important; 
-            box-shadow: 0 0 15px var(--green); 
-            color: #fff;
-            transform: scale(1.05);
-        }
-
-        /* Bottom Controls */
-        .controls {
-            position: fixed;
-            bottom: 0;
-            width: 100%;
-            background: #161a1e;
-            padding: 12px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-sizing: border-box;
-            border-top: 1px solid #333;
-        }
-
-        .price-info { font-size: 16px; font-weight: 500; }
-        .price-val { color: var(--primary); font-weight: bold; font-size: 20px; }
-
-        .btn-plus {
-            background: var(--primary);
-            border: none;
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-        }
+        :root { --bg: #0b0e11; --card: #1e2329; --primary: #fcd535; --green: #0ecb81; --text: #ffffff; }
+        body { background-color: var(--bg); color: var(--text); font-family: sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; }
         
-        .btn-plus:active { transform: scale(0.9); }
+        /* Header - Balance fi Maqaa */
+        .header {
+            width: 100%; padding: 15px; display: flex; justify-content: space-between; align-items: center;
+            background: #161a1e; position: sticky; top: 0; z-index: 1000; border-bottom: 1px solid #333; box-sizing: border-box;
+        }
+        .logo { font-size: 20px; font-weight: bold; color: var(--primary); }
+        .balance { border: 1px solid var(--green); color: var(--green); padding: 5px 12px; border-radius: 5px; font-weight: bold; }
+
+        /* Bingo Grid */
+        .grid {
+            display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; padding: 15px;
+            width: 100%; max-width: 450px; box-sizing: border-box; margin-bottom: 100px;
+        }
+        .cell {
+            background: var(--card); aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center;
+            border-radius: 4px; font-size: 15px; font-weight: bold; cursor: pointer; border: 1px solid #2b2f36;
+        }
+        .selected { background: var(--primary) !important; color: #000; }
+        .winner { background: var(--green) !important; box-shadow: 0 0 15px var(--green); color: #fff; }
+
+        /* Controls */
+        .controls {
+            position: fixed; bottom: 0; width: 100%; background: #161a1e; padding: 15px 20px;
+            display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #333; box-sizing: border-box;
+        }
+        .btn-plus {
+            background: var(--primary); border: none; width: 50px; height: 50px; border-radius: 50%;
+            font-size: 28px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center;
+        }
     </style>
 </head>
 <body>
 
 <div class="header">
-    <div class="logo-title">BingoEthio</div>
-    <div class="balance-display" id="balanceDisplay">1,540.00 ETB</div>
+    <div class="logo">BingoEthio</div>
+    <div class="balance" id="balDisp">1,540.00 ETB</div>
 </div>
 
-<div class="grid" id="bingoGrid"></div>
+<div class="grid" id="grid"></div>
 
 <div class="controls">
-    <div class="price-info">Gatii: <span class="price-val" id="ticketPrice">2</span> ETB</div>
-    <button class="btn-plus" onclick="increasePrice()">+</button>
+    <div>Gatii: <span id="priceDisp" style="color:var(--primary); font-weight:bold; font-size:20px;">2</span> ETB</div>
+    <button class="btn-plus" onclick="incPrice()">+</button>
 </div>
 
 <script>
-    // System Data
-    let balance = parseFloat(localStorage.getItem('bingo_balance')) || 1540;
-    let currentPrice = 2;
-    const gridElement = document.getElementById('bingoGrid');
+    let balance = parseFloat(localStorage.getItem('b_bal')) || 1540;
+    let price = 2;
+    const grid = document.getElementById('grid');
 
-    function updateUI() {
-        document.getElementById('balanceDisplay').innerText = balance.toLocaleString() + ".00 ETB";
-        document.getElementById('ticketPrice').innerText = currentPrice;
-        localStorage.setItem('bingo_balance', balance);
+    function update() {
+        document.getElementById('balDisp').innerText = balance.toLocaleString() + ".00 ETB";
+        document.getElementById('priceDisp').innerText = price;
+        localStorage.setItem('b_bal', balance);
     }
 
-    // Gatii daddabaluu (+) - Hanga barbaade ol deema
-    function increasePrice() {
-        currentPrice += 2;
-        updateUI();
-    }
+    function incPrice() { price += 2; update(); }
 
-    // Grid uumuu (1-100)
     for (let i = 1; i <= 100; i++) {
-        const cell = document.createElement('div');
-        cell.className = 'cell';
-        cell.innerText = i;
-        cell.onclick = () => playRound(i, cell);
-        gridElement.appendChild(cell);
-    }
-
-    function playRound(num, element) {
-        if (balance < currentPrice) {
-            alert("Qarshii gahaa hin qabdu!");
-            return;
-        }
-
-        // 1. Qarshii hir'isuu
-        balance -= currentPrice;
-        element.classList.add('selected');
-        updateUI();
-
-        // 2. Logic Injifannoo (Fakkeenyaaf)
-        // Lakkofsa 8, 21, 33, 49, 77, 92 yoo ta'an ni injifatu
-        const luckyNumbers = [8, 21, 33, 49, 77, 92];
-
-        setTimeout(() => {
-            if (luckyNumbers.includes(num)) {
-                // INJIFANNOO (x80)
-                let winAmount = currentPrice * 80;
-                balance += winAmount;
-                element.classList.remove('selected');
-                element.classList.add('winner'); 
-                updateUI();
-            } else {
-                // Yoo injifachuu baate halluu boora sana dhabamsiisi
+        const div = document.createElement('div');
+        div.className = 'cell';
+        div.innerText = i;
+        div.onclick = () => {
+            if (balance < price) return alert("Qarshii gahaa hin qabdu!");
+            balance -= price;
+            div.classList.add('selected');
+            update();
+            
+            // Logic Injifannoo (x80)
+            if ([8, 13, 33, 52].includes(i)) {
                 setTimeout(() => {
-                    element.classList.remove('selected');
-                }, 400);
+                    balance += (price * 80);
+                    div.classList.replace('selected', 'winner');
+                    update();
+                }, 600);
+            } else {
+                setTimeout(() => div.classList.remove('selected'), 600);
             }
-        }, 600);
+        };
+        grid.appendChild(div);
     }
-
-    // Jalqaba irratti UI haaromsuu
-    updateUI();
+    update();
 </script>
-
 </body>
 </html>
