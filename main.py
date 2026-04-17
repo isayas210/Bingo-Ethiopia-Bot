@@ -1,9 +1,9 @@
 import logging
+import os
 from aiogram import Bot, Dispatcher, executor
 
 # Token kee isa sirrii
-API_TOKEN = '8692359063:AAHteqfebC808tTmj6qvIdjiVJIXoXRTf4c'
-
+API_TOKEN = os.getenv('TOKEN')
 logging.basicConfig(level=logging.INFO)
 
 bot = Bot(token=API_TOKEN)
